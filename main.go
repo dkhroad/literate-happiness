@@ -6,8 +6,10 @@ import (
 	"net/http"
 )
 
-var homeTemplate *template.Template
-var contactTemplate *template.Template
+var (
+	homeTemplate    *template.Template
+	contactTemplate *template.Template
+)
 
 func home(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
@@ -25,12 +27,18 @@ func contact(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	var err error
-	homeTemplate, err = template.ParseFiles("views/home.tmpl")
+	homeTemplate, err = template.ParseFiles(
+		"views/home.tmpl",
+		"views/layouts/footer.tmpl",
+	)
 	if err != nil {
 		panic(err)
 	}
 
-	contactTemplate, err = template.ParseFiles("views/contact.tmpl")
+	contactTemplate, err = template.ParseFiles(
+		"views/contact.tmpl",
+		"views/layouts/footer.tmpl",
+	)
 	if err != nil {
 		panic(err)
 	}
