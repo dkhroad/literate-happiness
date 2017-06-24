@@ -14,7 +14,9 @@ var (
 func home(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 
-	err := homeView.Template.Execute(w, nil)
+	err := homeView.Template.ExecuteTemplate(w,
+		homeView.Layout,
+		nil)
 	if err != nil {
 		panic(err)
 	}
@@ -22,15 +24,17 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 func contact(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
-	err := contactView.Template.Execute(w, nil)
+	err := contactView.Template.ExecuteTemplate(w,
+		contactView.Layout,
+		nil)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func main() {
-	homeView = views.NewView("views/home.tmpl")
-	contactView = views.NewView("views/contact.tmpl")
+	homeView = views.NewView("bootstrap", "views/home.tmpl")
+	contactView = views.NewView("bootstrap", "views/contact.tmpl")
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", home)
