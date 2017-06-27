@@ -7,11 +7,13 @@ import (
 )
 
 var (
+	TemplateDir = "views"
 	LayoutDir   = "views/layouts"
-	TemplateExt = "*.tmpl"
+	TemplateExt = ".tmpl"
 )
 
 func NewView(layout string, files ...string) *View {
+	addTemplateDirAndExt(files)
 	files = append(files, layoutFiles()...)
 
 	t, err := template.ParseFiles(files...)
@@ -39,8 +41,14 @@ func (v *View) Render(w http.ResponseWriter, data interface{}) error {
 	return v.Template.ExecuteTemplate(w, v.Layout, data)
 }
 
+func addTemplateDirAndExt(files []string) {
+	for i, file := range files {
+		files[i] = filepath.Join(TemplateDir, file) + TemplateExt
+	}
+}
+
 func layoutFiles() []string {
-	files, err := filepath.Glob(filepath.Join(LayoutDir, TemplateExt))
+	files, err := filepath.Glob(filepath.Join(LayoutDir, "/*"+TemplateExt))
 	if err != nil {
 		panic(err)
 	}
