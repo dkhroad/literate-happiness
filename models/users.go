@@ -1,11 +1,20 @@
 package models
 
 import (
+	"errors"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
+	"golang.org/x/crypto/bcrypt"
+)
+
+var (
+	ErrNotFound        = errors.New("models: resource not found")
+	ErrInvalidPassword = errors.New("Invalid password")
+	ErrInvalidId       = errors.New("Invalid used id")
 )
 
 func NewUserGorm(connectionInfo string) (*UserGorm, error) {
+
 	db, err := gorm.Open("postgres", connectionInfo)
 	if err != nil {
 		return nil, err
@@ -13,15 +22,46 @@ func NewUserGorm(connectionInfo string) (*UserGorm, error) {
 	return &UserGorm{db}, nil
 }
 
-func (ug *UserGorm) ByID(id uint) *User {
+func (ug *UserGorm) ByID(id uint) (*User, error) {
 	return ug.byQuery(ug.Where("id = ?", id))
 }
 
-func (ug *UserGorm) ByEmail(email string) *User {
+func (ug *UserGorm) ByEmail(email string) (*User, error) {
 	return ug.byQuery(ug.Where("email = ?", email))
 }
 
+const pepperHash = "doormat-wrangle-scam-gating-shelve"
+
+func (ug *UserGorm) Authenticate(userEmail string, userPassword string) (*User, error) {
+	foundUser, err := ug.ByEmail(userEmail)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, ErrNotFound
+		} else {
+			panic(err)
+		}
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash), []byte(userPassword+pepperHash))
+	if err != nil {
+		switch err {
+		case bcrypt.ErrMismatchedHashAndPassword:
+			return nil, ErrInvalidPassword
+		default:
+			return nil, err
+		}
+	}
+	return foundUser, err
+}
+
 func (ug *UserGorm) Create(user *User) error {
+	passwd := []byte(user.Password + pepperHash)
+	phash, err := bcrypt.GenerateFromPassword(passwd, bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	user.PasswordHash = string(phash)
+	user.Password = ""
 	return ug.DB.Create(user).Error
 }
 
@@ -30,18 +70,25 @@ func (ug *UserGorm) Update(user *User) error {
 }
 
 func (ug *UserGorm) Delete(id uint) error {
+	if id == 0 {
+		return ErrInvalidId
+	}
 	user := &User{Model: gorm.Model{ID: id}}
 	return ug.DB.Delete(user).Error
 }
 
-func (ug *UserGorm) byQuery(query *gorm.DB) *User {
+func (ug *UserGorm) Close() error {
+	return ug.DB.Close()
+}
+
+func (ug *UserGorm) byQuery(query *gorm.DB) (*User, error) {
 	u := User{}
 	err := query.First(&u).Error
 	switch err {
 	case nil:
-		return &u
+		return &u, nil
 	case gorm.ErrRecordNotFound:
-		return nil
+		return nil, ErrNotFound
 	default:
 		panic(err)
 	}
@@ -62,14 +109,18 @@ type UserGorm struct {
 
 type User struct {
 	gorm.Model
-	Name  string
-	Email string `gorm:"not null;unique_index"`
+	Name         string
+	Email        string `gorm:"not null;unique_index"`
+	PasswordHash string `gorm:"not null"`
+	Password     string `gorm:"-"`
 }
 
 type UserService interface {
-	ByID(id uint) *User
-	ByEmail(email string) *User
+	ByID(id uint) (*User, error)
+	ByEmail(email string) (*User, error)
 	Create(user *User) error
 	Update(user *User) error
 	Delete(id uint) error
+	Authenticate(string, string) (*User, error)
+	Close() error
 }
