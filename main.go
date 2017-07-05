@@ -23,6 +23,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer ug.Close()
 	ug.AutoMigrate()
 
 	staticC := controllers.NewStatic()
