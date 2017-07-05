@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/gorilla/mux"
 	"lenslocked.com/controllers"
 	"lenslocked.com/models"
-	"net/http"
 )
 
 const (
@@ -38,6 +39,7 @@ func main() {
 	r.HandleFunc("/login", usersC.Login).Methods("POST")
 	r.HandleFunc("/signup", usersC.New).Methods("GET")
 	r.HandleFunc("/signup", usersC.Create).Methods("POST")
+	r.HandleFunc("/cookietest", usersC.CookieTest).Methods("GET")
 	r.HandleFunc("/galleries", galleriesC.New).Methods("GET")
 	http.ListenAndServe(":3000", r)
 }

@@ -2,9 +2,12 @@ package models
 
 import (
 	"errors"
+	"fmt"
+
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"golang.org/x/crypto/bcrypt"
+	"lenslocked.com/hash"
 )
 
 var (
@@ -19,7 +22,10 @@ func NewUserGorm(connectionInfo string) (*UserGorm, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &UserGorm{db}, nil
+	return &UserGorm{
+		DB:   db,
+		hmac: hash.NewHMAC(hmacSecretKey),
+	}, nil
 }
 
 func (ug *UserGorm) ByID(id uint) (*User, error) {
@@ -30,16 +36,17 @@ func (ug *UserGorm) ByEmail(email string) (*User, error) {
 	return ug.byQuery(ug.Where("email = ?", email))
 }
 
+func (ug *UserGorm) ByRememberTokenHash(tokenHash string) (*User, error) {
+	return ug.byQuery(ug.Where("remember_token_hash = ?", tokenHash))
+}
+
 const pepperHash = "doormat-wrangle-scam-gating-shelve"
+const hmacSecretKey = "hmac-secret-key"
 
 func (ug *UserGorm) Authenticate(userEmail string, userPassword string) (*User, error) {
 	foundUser, err := ug.ByEmail(userEmail)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, ErrNotFound
-		} else {
-			panic(err)
-		}
+		return nil, err
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash), []byte(userPassword+pepperHash))
@@ -51,6 +58,7 @@ func (ug *UserGorm) Authenticate(userEmail string, userPassword string) (*User, 
 			return nil, err
 		}
 	}
+	fmt.Println(foundUser)
 	return foundUser, err
 }
 
@@ -62,10 +70,14 @@ func (ug *UserGorm) Create(user *User) error {
 	}
 	user.PasswordHash = string(phash)
 	user.Password = ""
+
 	return ug.DB.Create(user).Error
 }
 
 func (ug *UserGorm) Update(user *User) error {
+	if user.RememberToken != "" {
+		user.RememberTokenHash = ug.hmac.Hash(user.RememberToken)
+	}
 	return ug.DB.Save(user).Error
 }
 
@@ -105,22 +117,26 @@ func (ug *UserGorm) AutoMigrate() {
 
 type UserGorm struct {
 	*gorm.DB
+	hmac hash.HMAC
 }
 
 type User struct {
 	gorm.Model
-	Name         string
-	Email        string `gorm:"not null;unique_index"`
-	PasswordHash string `gorm:"not null"`
-	Password     string `gorm:"-"`
+	Name              string
+	Email             string `gorm:"not null;unique_index"`
+	PasswordHash      string `gorm:"not null"`
+	Password          string `gorm:"-"`
+	RememberToken     string `gorm:"-"`
+	RememberTokenHash string `gorm:"not null;unique_index"`
 }
 
 type UserService interface {
 	ByID(id uint) (*User, error)
 	ByEmail(email string) (*User, error)
+	ByRememberTokenHash(token string) (*User, error)
 	Create(user *User) error
 	Update(user *User) error
 	Delete(id uint) error
-	Authenticate(string, string) (*User, error)
 	Close() error
+	Authenticate(string, string) (*User, error)
 }

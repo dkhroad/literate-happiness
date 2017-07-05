@@ -2,9 +2,11 @@ package controllers
 
 import (
 	"fmt"
-	"lenslocked.com/models"
-	"lenslocked.com/views"
 	"net/http"
+
+	"lenslocked.com/models"
+	"lenslocked.com/rand"
+	"lenslocked.com/views"
 )
 
 func NewUsers(us models.UserService) *Users {
@@ -33,9 +35,21 @@ func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := u.UserService.Authenticate(loginForm.Email, loginForm.Password)
 	if err != nil {
-		panic(err)
+		switch err {
+		case models.ErrNotFound:
+			fmt.Fprintf(w, "Invalid email address")
+		case models.ErrInvalidPassword:
+			fmt.Fprintf(w, "Invalid password")
+		default:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
-	fmt.Fprintln(w, user)
+	fmt.Println("user is ...:", user, err)
+	if err := u.signInUser(w, user); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/cookietest", http.StatusFound)
 }
 
 func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
@@ -50,9 +64,35 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.UserService.Create(&user); err != nil {
-		panic(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	fmt.Fprintln(w, user)
+	if err := u.signInUser(w, &user); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/cookietest", http.StatusFound)
+}
+
+func (u *Users) signInUser(w http.ResponseWriter, user *models.User) error {
+	fmt.Println(user)
+	if user.RememberToken == "" {
+		token, err := rand.RememberToken()
+		if err != nil {
+			return err
+		}
+		user.RememberToken = token
+		if err := u.UserService.Update(user); err != nil {
+			return err
+		}
+	}
+	cookie := http.Cookie{
+		Name:     "remember_token",
+		Value:    user.RememberTokenHash,
+		HttpOnly: true,
+	}
+	http.SetCookie(w, &cookie)
+	return nil
 }
 
 type SignupForm struct {
@@ -65,4 +105,18 @@ type Users struct {
 	NewView   *views.View
 	LoginView *views.View
 	models.UserService
+}
+
+func (u *Users) CookieTest(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("remember_token")
+	if err != nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+	fmt.Fprintln(w, "remember token: ", cookie.Value)
+	user, err := u.ByRememberTokenHash(cookie.Value)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+	}
+	fmt.Fprintf(w, "%+v", user)
 }
