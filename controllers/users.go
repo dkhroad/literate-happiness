@@ -43,8 +43,8 @@ func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 		default:
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
+		return
 	}
-	fmt.Println("user is ...:", user, err)
 	if err := u.signInUser(w, user); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -81,8 +81,10 @@ func (u *Users) signInUser(w http.ResponseWriter, user *models.User) error {
 		if err != nil {
 			return err
 		}
-		user.RememberToken = token
-		if err := u.UserService.Update(user); err != nil {
+
+		// will generate and save the remember token hash
+		if err := u.UserService.UpdateAttributes(user, models.User{
+			RememberToken: token}); err != nil {
 			return err
 		}
 	}
@@ -117,6 +119,7 @@ func (u *Users) CookieTest(w http.ResponseWriter, r *http.Request) {
 	user, err := u.ByRememberTokenHash(cookie.Value)
 	if user == nil {
 		http.Redirect(w, r, "/login", http.StatusFound)
+		return
 	}
 	fmt.Fprintf(w, "%+v", user)
 }

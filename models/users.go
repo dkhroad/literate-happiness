@@ -22,6 +22,7 @@ func NewUserGorm(connectionInfo string) (*UserGorm, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.LogMode(true)
 	return &UserGorm{
 		DB:   db,
 		hmac: hash.NewHMAC(hmacSecretKey),
@@ -72,6 +73,13 @@ func (ug *UserGorm) Create(user *User) error {
 	user.Password = ""
 
 	return ug.DB.Create(user).Error
+}
+
+func (ug *UserGorm) UpdateAttributes(user *User, attrs User) error {
+	if attrs.RememberToken != "" {
+		attrs.RememberTokenHash = ug.hmac.Hash(attrs.RememberToken)
+	}
+	return ug.DB.Model(user).Updates(attrs).Error
 }
 
 func (ug *UserGorm) Update(user *User) error {
@@ -136,6 +144,7 @@ type UserService interface {
 	ByRememberTokenHash(token string) (*User, error)
 	Create(user *User) error
 	Update(user *User) error
+	UpdateAttributes(user *User, attrs User) error
 	Delete(id uint) error
 	Close() error
 	Authenticate(string, string) (*User, error)
