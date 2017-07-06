@@ -16,7 +16,54 @@ var (
 	ErrInvalidId       = errors.New("Invalid used id")
 )
 
-func NewUserGorm(connectionInfo string) (*UserGorm, error) {
+const (
+	pepperHash    = "doormat-wrangle-scam-gating-shelve"
+	hmacSecretKey = "hmac-secret-key"
+)
+
+// UserDB is used to interact with a persistent store
+type UserDB interface {
+	// single user queries
+	ByID(id uint) (*User, error)
+	ByEmail(email string) (*User, error)
+	ByRememberTokenHash(token string) (*User, error)
+
+	// CRUD methods
+	Create(user *User) error
+	Update(user *User) error
+	UpdateAttributes(user *User, attrs User) error
+	Delete(id uint) error
+
+	// close the database connection to avoid resource leakage
+	Close() error
+
+	// migrations
+	DestructiveReset()
+	AutoMigrate()
+}
+
+func NewUserService(connectionInfo string) (*UserService, error) {
+	ug, err := newUserGorm(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return &UserService{
+		UserDB: &UserValidator{
+			UserDB: ug,
+		},
+	}, nil
+}
+
+type UserService struct {
+	UserDB
+}
+
+type UserValidator struct {
+	UserDB
+}
+
+func newUserGorm(connectionInfo string) (*UserGorm, error) {
 
 	db, err := gorm.Open("postgres", connectionInfo)
 	if err != nil {
@@ -39,28 +86,6 @@ func (ug *UserGorm) ByEmail(email string) (*User, error) {
 
 func (ug *UserGorm) ByRememberTokenHash(tokenHash string) (*User, error) {
 	return ug.byQuery(ug.Where("remember_token_hash = ?", tokenHash))
-}
-
-const pepperHash = "doormat-wrangle-scam-gating-shelve"
-const hmacSecretKey = "hmac-secret-key"
-
-func (ug *UserGorm) Authenticate(userEmail string, userPassword string) (*User, error) {
-	foundUser, err := ug.ByEmail(userEmail)
-	if err != nil {
-		return nil, err
-	}
-
-	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash), []byte(userPassword+pepperHash))
-	if err != nil {
-		switch err {
-		case bcrypt.ErrMismatchedHashAndPassword:
-			return nil, ErrInvalidPassword
-		default:
-			return nil, err
-		}
-	}
-	fmt.Println(foundUser)
-	return foundUser, err
 }
 
 func (ug *UserGorm) Create(user *User) error {
@@ -123,6 +148,8 @@ func (ug *UserGorm) AutoMigrate() {
 	ug.DB.AutoMigrate(&User{})
 }
 
+var _ UserDB = &UserGorm{}
+
 type UserGorm struct {
 	*gorm.DB
 	hmac hash.HMAC
@@ -138,14 +165,21 @@ type User struct {
 	RememberTokenHash string `gorm:"not null;unique_index"`
 }
 
-type UserService interface {
-	ByID(id uint) (*User, error)
-	ByEmail(email string) (*User, error)
-	ByRememberTokenHash(token string) (*User, error)
-	Create(user *User) error
-	Update(user *User) error
-	UpdateAttributes(user *User, attrs User) error
-	Delete(id uint) error
-	Close() error
-	Authenticate(string, string) (*User, error)
+func (us *UserService) Authenticate(userEmail string, userPassword string) (*User, error) {
+	foundUser, err := us.ByEmail(userEmail)
+	if err != nil {
+		return nil, err
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash), []byte(userPassword+pepperHash))
+	if err != nil {
+		switch err {
+		case bcrypt.ErrMismatchedHashAndPassword:
+			return nil, ErrInvalidPassword
+		default:
+			return nil, err
+		}
+	}
+	fmt.Println(foundUser)
+	return foundUser, err
 }

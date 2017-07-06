@@ -20,15 +20,15 @@ const (
 func main() {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=disable",
 		host, port, user, dbname)
-	ug, err := models.NewUserGorm(psqlInfo)
+	us, err := models.NewUserService(psqlInfo)
 	if err != nil {
 		panic(err)
 	}
-	defer ug.Close()
-	ug.AutoMigrate()
+	defer us.Close()
+	us.AutoMigrate()
 
 	staticC := controllers.NewStatic()
-	usersC := controllers.NewUsers(ug)
+	usersC := controllers.NewUsers(us)
 	galleriesC := controllers.NewGalleries()
 
 	r := mux.NewRouter()

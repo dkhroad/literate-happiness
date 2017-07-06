@@ -9,7 +9,7 @@ import (
 	"lenslocked.com/views"
 )
 
-func NewUsers(us models.UserService) *Users {
+func NewUsers(us *models.UserService) *Users {
 	return &Users{
 		NewView:     views.NewView("bootstrap", "users/new"),
 		LoginView:   views.NewView("bootstrap", "users/login"),
@@ -106,7 +106,7 @@ type SignupForm struct {
 type Users struct {
 	NewView   *views.View
 	LoginView *views.View
-	models.UserService
+	*models.UserService
 }
 
 func (u *Users) CookieTest(w http.ResponseWriter, r *http.Request) {
