@@ -132,17 +132,24 @@ func (uv *userValidator) hmacRememberToken(user *User) error {
 	return nil
 }
 
-func (uv *userValidator) Create(user *User) error {
-	if user.RememberToken == "" {
-		token, err := rand.RememberToken()
-		if err != nil {
-			return err
-		}
-		user.RememberToken = token
+func (uv *userValidator) setRememberTokenIfUnset(user *User) error {
+	if user.RememberToken != "" {
+		return nil
 	}
+
+	token, err := rand.RememberToken()
+	if err != nil {
+		return err
+	}
+	user.RememberToken = token
+	return nil
+}
+
+func (uv *userValidator) Create(user *User) error {
 
 	err := runUserValidateFuncs(user,
 		uv.bcryptPassword,
+		uv.setRememberTokenIfUnset,
 		uv.hmacRememberToken,
 	)
 	if err != nil {
@@ -163,8 +170,11 @@ func (uv *userValidator) Update(user *User) error {
 }
 
 func (uv *userValidator) UpdateAttributes(user *User, attrs User) error {
-	if attrs.RememberToken != "" {
-		attrs.RememberTokenHash = uv.hmac.Hash(attrs.RememberToken)
+	err := runUserValidateFuncs(user,
+		uv.hmacRememberToken,
+	)
+	if err != nil {
+		return err
 	}
 	return uv.UserDB.UpdateAttributes(user, attrs)
 }
