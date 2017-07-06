@@ -49,8 +49,9 @@ func NewUserService(connectionInfo string) (*UserService, error) {
 	}
 
 	return &UserService{
-		UserDB: &UserValidator{
+		UserDB: &userValidator{
 			UserDB: ug,
+			hmac:   hash.NewHMAC(hmacSecretKey),
 		},
 	}, nil
 }
@@ -59,8 +60,93 @@ type UserService struct {
 	UserDB
 }
 
-type UserValidator struct {
+func (us *UserService) Authenticate(userEmail string, userPassword string) (*User, error) {
+	foundUser, err := us.ByEmail(userEmail)
+	if err != nil {
+		return nil, err
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash), []byte(userPassword+pepperHash))
+	if err != nil {
+		switch err {
+		case bcrypt.ErrMismatchedHashAndPassword:
+			return nil, ErrInvalidPassword
+		default:
+			return nil, err
+		}
+	}
+	fmt.Println(foundUser)
+	return foundUser, err
+}
+
+type userValidateFunc func(*User) error
+
+func runUserValidateFuncs(user *User, fns ...userValidateFunc) error {
+	for _, fn := range fns {
+		if err := fn(user); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type userValidator struct {
 	UserDB
+	hmac hash.HMAC
+}
+
+// ByRememberTokenHash will hash the given token and call the
+// ByRememberTokenHash on subsequent DB layer
+func (uv *userValidator) ByRememberTokenHash(token string) (u *User, err error) {
+	tokenHash := uv.hmac.Hash(token)
+	return uv.UserDB.ByRememberTokenHash(tokenHash)
+}
+
+func (uv *userValidator) bcryptPassword(user *User) error {
+	passwd := []byte(user.Password + pepperHash)
+	phash, err := bcrypt.GenerateFromPassword(passwd, bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	user.PasswordHash = string(phash)
+	user.Password = ""
+	return nil
+}
+
+func (uv *userValidator) Create(user *User) error {
+	err := runUserValidateFuncs(user, uv.bcryptPassword)
+	if err != nil {
+		return err
+	}
+	return uv.UserDB.Create(user)
+}
+
+func (uv *userValidator) Update(user *User) error {
+	if user.RememberToken != "" {
+		user.RememberTokenHash = uv.hmac.Hash(user.RememberToken)
+	}
+	return uv.UserDB.Update(user)
+}
+
+func (uv *userValidator) UpdateAttributes(user *User, attrs User) error {
+	if attrs.RememberToken != "" {
+		attrs.RememberTokenHash = uv.hmac.Hash(attrs.RememberToken)
+	}
+	return uv.UserDB.UpdateAttributes(user, attrs)
+}
+
+func (uv *userValidator) Delete(id uint) error {
+	if id == 0 {
+		return ErrInvalidId
+	}
+	return uv.UserDB.Delete(id)
+}
+
+var _ UserDB = &UserGorm{}
+
+type UserGorm struct {
+	*gorm.DB
 }
 
 func newUserGorm(connectionInfo string) (*UserGorm, error) {
@@ -71,8 +157,7 @@ func newUserGorm(connectionInfo string) (*UserGorm, error) {
 	}
 	db.LogMode(true)
 	return &UserGorm{
-		DB:   db,
-		hmac: hash.NewHMAC(hmacSecretKey),
+		DB: db,
 	}, nil
 }
 
@@ -89,35 +174,18 @@ func (ug *UserGorm) ByRememberTokenHash(tokenHash string) (*User, error) {
 }
 
 func (ug *UserGorm) Create(user *User) error {
-	passwd := []byte(user.Password + pepperHash)
-	phash, err := bcrypt.GenerateFromPassword(passwd, bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-	user.PasswordHash = string(phash)
-	user.Password = ""
-
 	return ug.DB.Create(user).Error
 }
 
 func (ug *UserGorm) UpdateAttributes(user *User, attrs User) error {
-	if attrs.RememberToken != "" {
-		attrs.RememberTokenHash = ug.hmac.Hash(attrs.RememberToken)
-	}
 	return ug.DB.Model(user).Updates(attrs).Error
 }
 
 func (ug *UserGorm) Update(user *User) error {
-	if user.RememberToken != "" {
-		user.RememberTokenHash = ug.hmac.Hash(user.RememberToken)
-	}
 	return ug.DB.Save(user).Error
 }
 
 func (ug *UserGorm) Delete(id uint) error {
-	if id == 0 {
-		return ErrInvalidId
-	}
 	user := &User{Model: gorm.Model{ID: id}}
 	return ug.DB.Delete(user).Error
 }
@@ -148,13 +216,6 @@ func (ug *UserGorm) AutoMigrate() {
 	ug.DB.AutoMigrate(&User{})
 }
 
-var _ UserDB = &UserGorm{}
-
-type UserGorm struct {
-	*gorm.DB
-	hmac hash.HMAC
-}
-
 type User struct {
 	gorm.Model
 	Name              string
@@ -163,23 +224,4 @@ type User struct {
 	Password          string `gorm:"-"`
 	RememberToken     string `gorm:"-"`
 	RememberTokenHash string `gorm:"not null;unique_index"`
-}
-
-func (us *UserService) Authenticate(userEmail string, userPassword string) (*User, error) {
-	foundUser, err := us.ByEmail(userEmail)
-	if err != nil {
-		return nil, err
-	}
-
-	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash), []byte(userPassword+pepperHash))
-	if err != nil {
-		switch err {
-		case bcrypt.ErrMismatchedHashAndPassword:
-			return nil, ErrInvalidPassword
-		default:
-			return nil, err
-		}
-	}
-	fmt.Println(foundUser)
-	return foundUser, err
 }
