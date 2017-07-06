@@ -8,6 +8,7 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"golang.org/x/crypto/bcrypt"
 	"lenslocked.com/hash"
+	"lenslocked.com/rand"
 )
 
 var (
@@ -98,9 +99,17 @@ type userValidator struct {
 
 // ByRememberTokenHash will hash the given token and call the
 // ByRememberTokenHash on subsequent DB layer
-func (uv *userValidator) ByRememberTokenHash(token string) (u *User, err error) {
-	tokenHash := uv.hmac.Hash(token)
-	return uv.UserDB.ByRememberTokenHash(tokenHash)
+func (uv *userValidator) ByRememberTokenHash(token string) (*User, error) {
+	user := User{
+		RememberToken: token,
+	}
+	err := runUserValidateFuncs(&user,
+		uv.hmacRememberToken,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return uv.UserDB.ByRememberTokenHash(user.RememberTokenHash)
 }
 
 func (uv *userValidator) bcryptPassword(user *User) error {
@@ -114,8 +123,28 @@ func (uv *userValidator) bcryptPassword(user *User) error {
 	return nil
 }
 
+func (uv *userValidator) hmacRememberToken(user *User) error {
+	if user.RememberToken == "" {
+		return nil
+	}
+	user.RememberTokenHash = uv.hmac.Hash(user.RememberToken)
+	user.RememberToken = ""
+	return nil
+}
+
 func (uv *userValidator) Create(user *User) error {
-	err := runUserValidateFuncs(user, uv.bcryptPassword)
+	if user.RememberToken == "" {
+		token, err := rand.RememberToken()
+		if err != nil {
+			return err
+		}
+		user.RememberToken = token
+	}
+
+	err := runUserValidateFuncs(user,
+		uv.bcryptPassword,
+		uv.hmacRememberToken,
+	)
 	if err != nil {
 		return err
 	}
@@ -123,8 +152,12 @@ func (uv *userValidator) Create(user *User) error {
 }
 
 func (uv *userValidator) Update(user *User) error {
-	if user.RememberToken != "" {
-		user.RememberTokenHash = uv.hmac.Hash(user.RememberToken)
+	err := runUserValidateFuncs(user,
+		uv.bcryptPassword,
+		uv.hmacRememberToken,
+	)
+	if err != nil {
+		return err
 	}
 	return uv.UserDB.Update(user)
 }
