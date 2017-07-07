@@ -32,12 +32,23 @@ type View struct {
 }
 
 func (v *View) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	if err := v.Template.ExecuteTemplate(w, v.Layout, nil); err != nil {
+	if err := v.Render(w, nil); err != nil {
 		panic(err)
 	}
 }
+
+// Render is used to render a view with a predefined layout.
 func (v *View) Render(w http.ResponseWriter, data interface{}) error {
+	switch data.(type) {
+	case Data:
+		// do nothing
+	default:
+		data = Data{
+			Yield: data,
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/html")
 	return v.Template.ExecuteTemplate(w, v.Layout, data)
 }
 

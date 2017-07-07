@@ -115,11 +115,11 @@ func (u *Users) CookieTest(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-	fmt.Fprintln(w, "remember token: ", cookie.Value)
 	user, err := u.ByRememberTokenHash(cookie.Value)
 	if user == nil {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
+	fmt.Fprintln(w, "remember token: ", cookie.Value)
 	fmt.Fprintf(w, "%+v", user)
 }
