@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"lenslocked.com/models"
@@ -19,43 +20,22 @@ func NewUsers(us *models.UserService) *Users {
 
 func (u *Users) New(w http.ResponseWriter, r *http.Request) {
 	if err := u.NewView.Render(w, nil); err != nil {
-		panic(err)
-	}
-}
-
-func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
-	loginForm := struct {
-		Email    string `schema:"email"`
-		Password string `schema:"password"`
-	}{}
-
-	if err := parseForm(r, &loginForm); err != nil {
-		panic(err)
-	}
-
-	user, err := u.UserService.Authenticate(loginForm.Email, loginForm.Password)
-	if err != nil {
-		switch err {
-		case models.ErrNotFound:
-			fmt.Fprintf(w, "Invalid email address")
-		case models.ErrInvalidPassword:
-			fmt.Fprintf(w, "Invalid password")
-		default:
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Fatal(err)
+		vd := views.Data{
+			Alert: views.AlertGeneric,
 		}
-		return
+		u.NewView.RenderError(w, vd)
 	}
-	if err := u.signInUser(w, user); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(w, r, "/cookietest", http.StatusFound)
 }
 
 func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 	form := SignupForm{}
+	vd := views.Data{}
 	if err := parseForm(r, &form); err != nil {
-		panic(err)
+		log.Fatal(err)
+		vd.AddAlert(views.AlertGeneric)
+		u.NewView.RenderError(w, vd)
+		return
 	}
 	user := models.User{
 		Name:     form.Name,
@@ -64,11 +44,51 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.UserService.Create(&user); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		vd.AddAlert(views.AlertError(err.Error()))
+		u.NewView.RenderError(w, vd)
 		return
 	}
 	if err := u.signInUser(w, &user); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Fatal(err)
+		vd.AddAlert(views.AlertWarning("Your account was created, but we were unable to log you in." +
+			"Please try to login again."))
+		u.NewView.RenderError(w, vd)
+		return
+	}
+	http.Redirect(w, r, "/cookietest", http.StatusFound)
+}
+
+func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
+	loginForm := struct {
+		Email    string `schema:"email"`
+		Password string `schema:"password"`
+	}{}
+
+	vd := view.Data{}
+	if err := parseForm(r, &loginForm); err != nil {
+		log.Fatal(err)
+		vd.AddAlert(views.AlertGeneric)
+		u.LoginView.RenderError(w, vd)
+		return
+	}
+
+	user, err := u.UserService.Authenticate(loginForm.Email, loginForm.Password)
+	if err != nil {
+		switch err {
+		case models.ErrNotFound:
+			vd.AddAlert(views.AlertError("Invalid email address"))
+		case models.ErrInvalidPassword:
+			vd.AddAlert(views.AlertError("Invalid password"))
+		default:
+			vd.AddAlert(views.AlertGeneric)
+		}
+		u.LoginView.RenderError(w, vd)
+		return
+	}
+	if err := u.signInUser(w, user); err != nil {
+		log.Fatal(err)
+		vd.AddAlert(views.AlertGeneric)
+		u.LoginView.RenderError(w, vd)
 		return
 	}
 	http.Redirect(w, r, "/cookietest", http.StatusFound)

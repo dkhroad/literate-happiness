@@ -52,6 +52,12 @@ func (v *View) Render(w http.ResponseWriter, data interface{}) error {
 	return v.Template.ExecuteTemplate(w, v.Layout, data)
 }
 
+func (v *View) RenderError(w http.ResponseWriter, data interface{}) error {
+	w.WriteHeader(http.StatusInternalServerError)
+	w.Header().Set("Content-Type", "text/html")
+	return v.Template.ExecuteTemplate(w, v.Layout, data)
+}
+
 func addTemplateDirAndExt(files []string) {
 	for i, file := range files {
 		files[i] = filepath.Join(TemplateDir, file) + TemplateExt

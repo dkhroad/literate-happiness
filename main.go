@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -16,6 +17,10 @@ const (
 	dbname   = "lenslocked_dev"
 	password = ""
 )
+
+func init() {
+	log.SetFlags(log.Llongfile | log.LstdFlags)
+}
 
 func main() {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=disable",
