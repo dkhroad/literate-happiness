@@ -1,7 +1,10 @@
 package views
 
 import (
+	"bytes"
 	"html/template"
+	"io"
+	"log"
 	"net/http"
 	"path/filepath"
 )
@@ -18,7 +21,7 @@ func NewView(layout string, files ...string) *View {
 
 	t, err := template.ParseFiles(files...)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 	return &View{
 		Template: t,
@@ -32,13 +35,11 @@ type View struct {
 }
 
 func (v *View) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := v.Render(w, nil); err != nil {
-		panic(err)
-	}
+	v.Render(w, nil)
 }
 
 // Render is used to render a view with a predefined layout.
-func (v *View) Render(w http.ResponseWriter, data interface{}) error {
+func (v *View) Render(w http.ResponseWriter, data interface{}) {
 	switch data.(type) {
 	case Data:
 		// do nothing
@@ -47,15 +48,29 @@ func (v *View) Render(w http.ResponseWriter, data interface{}) error {
 			Yield: data,
 		}
 	}
+	// v.RenderError(w, data)
 
 	w.Header().Set("Content-Type", "text/html")
-	return v.Template.ExecuteTemplate(w, v.Layout, data)
+	v.executeTemplateAndLogError(w, data)
 }
 
-func (v *View) RenderError(w http.ResponseWriter, data interface{}) error {
+func (v *View) RenderError(w http.ResponseWriter, data interface{}) {
 	w.WriteHeader(http.StatusInternalServerError)
 	w.Header().Set("Content-Type", "text/html")
-	return v.Template.ExecuteTemplate(w, v.Layout, data)
+	v.executeTemplateAndLogError(w, data)
+}
+
+func (v *View) executeTemplateAndLogError(w http.ResponseWriter, data interface{}) {
+	var buf bytes.Buffer
+	if err := v.Template.ExecuteTemplate(&buf, v.Layout, data); err != nil {
+		http.Error(w, "Something went wrong.", http.StatusInternalServerError)
+		log.Println(err)
+		return
+	}
+	if _, err := io.Copy(w, &buf); err != nil {
+		log.Println("Failed to execute template", v.Layout, err)
+	}
+	return
 }
 
 func addTemplateDirAndExt(files []string) {
@@ -67,7 +82,7 @@ func addTemplateDirAndExt(files []string) {
 func layoutFiles() []string {
 	files, err := filepath.Glob(filepath.Join(LayoutDir, "/*"+TemplateExt))
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 	return files
 }

@@ -1,8 +1,8 @@
 package models
 
 import (
-	"errors"
 	"fmt"
+	"log"
 	"regexp"
 
 	"strings"
@@ -12,15 +12,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"lenslocked.com/hash"
 	"lenslocked.com/rand"
-)
-
-var (
-	ErrNotFound        = errors.New("models: resource not found")
-	ErrInvalidPassword = errors.New("Invalid password")
-	ErrInvalidId       = errors.New("Invalid used id")
-	ErrEmailRequired   = errors.New("Email is required")
-	ErrInvalidEmail    = errors.New("Email is not valid")
-	ErrEmailNotAvail   = errors.New("Email address is not available")
 )
 
 const (
@@ -38,7 +29,7 @@ type UserDB interface {
 	// CRUD methods
 	Create(user *User) error
 	Update(user *User) error
-	UpdateAttributes(user *User, attrs User) error
+	UpdateAttributes(user *User) error
 	Delete(id uint) error
 
 	// close the database connection to avoid resource leakage
@@ -106,6 +97,7 @@ func (ug *UserGorm) ByID(id uint) (*User, error) {
 }
 
 func (ug *UserGorm) ByEmail(email string) (*User, error) {
+	log.Println("Looking for user with email: ", email)
 	return ug.byQuery(ug.Where("email = ?", email))
 }
 
@@ -117,8 +109,8 @@ func (ug *UserGorm) Create(user *User) error {
 	return ug.DB.Create(user).Error
 }
 
-func (ug *UserGorm) UpdateAttributes(user *User, attrs User) error {
-	return ug.DB.Model(user).Updates(attrs).Error
+func (ug *UserGorm) UpdateAttributes(user *User) error {
+	return ug.DB.Model(user).Updates(*user).Error
 }
 
 func (ug *UserGorm) Update(user *User) error {
@@ -143,7 +135,7 @@ func (ug *UserGorm) byQuery(query *gorm.DB) (*User, error) {
 	case gorm.ErrRecordNotFound:
 		return nil, ErrNotFound
 	default:
-		panic(err)
+		return nil, err
 	}
 }
 
@@ -153,7 +145,9 @@ func (ug *UserGorm) DestructiveReset() {
 }
 
 func (ug *UserGorm) AutoMigrate() {
-	ug.DB.AutoMigrate(&User{})
+	if err := ug.DB.AutoMigrate(&User{}).Error; err != nil {
+		log.Fatal(err)
+	}
 }
 
 type User struct {
@@ -261,14 +255,42 @@ func (uv *userValidator) emailIsAvail(user *User) error {
 	}
 	return ErrEmailNotAvail
 }
+
+func (uv *userValidator) passwordRequired(user *User) error {
+	if user.Password == "" {
+		return ErrPasswordRequired
+	}
+	return nil
+}
+
+func (uv *userValidator) passwordMinLength(user *User) error {
+	if user.Password == "" {
+		return nil
+	}
+	if len(user.Password) < 8 {
+		return ErrPasswordTooShort
+	}
+	return nil
+}
+
+func (uv *userValidator) passwordHashRequired(user *User) error {
+	if user.PasswordHash == "" {
+		return ErrPasswordRequired
+	}
+	return nil
+}
+
 func (uv *userValidator) Create(user *User) error {
 
 	err := runUserValidateFuncs(user,
+		uv.passwordRequired,
+		uv.passwordMinLength,
 		uv.normalizeEmail,
 		uv.requireEmail,
 		uv.validateEmailFormat,
 		uv.emailIsAvail,
 		uv.bcryptPassword,
+		uv.passwordHashRequired,
 		uv.setRememberTokenIfUnset,
 		uv.hmacRememberToken,
 	)
@@ -285,6 +307,8 @@ func (uv *userValidator) Update(user *User) error {
 		uv.validateEmailFormat,
 		uv.emailIsAvail,
 		uv.bcryptPassword,
+		uv.passwordMinLength,
+		uv.passwordHashRequired,
 		uv.hmacRememberToken,
 	)
 	if err != nil {
@@ -293,7 +317,7 @@ func (uv *userValidator) Update(user *User) error {
 	return uv.UserDB.Update(user)
 }
 
-func (uv *userValidator) UpdateAttributes(user *User, attrs User) error {
+func (uv *userValidator) UpdateAttributes(user *User) error {
 	err := runUserValidateFuncs(user,
 		uv.hmacRememberToken,
 		uv.normalizeEmail,
@@ -303,7 +327,8 @@ func (uv *userValidator) UpdateAttributes(user *User, attrs User) error {
 	if err != nil {
 		return err
 	}
-	return uv.UserDB.UpdateAttributes(user, attrs)
+
+	return uv.UserDB.UpdateAttributes(user)
 }
 
 func (uv *userValidator) Delete(id uint) error {

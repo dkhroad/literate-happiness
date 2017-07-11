@@ -1,5 +1,7 @@
 package views
 
+import "log"
+
 const (
 	LevelError   = "danger"
 	LevelWarning = "warning"
@@ -37,6 +39,16 @@ func AlertSuccess(msg string) *Alert {
 	return &Alert{LevelSuccess, msg}
 }
 
-func (d *Data) AddAlert(alert *Alert) {
-	d.Alert = alert
+func (d *Data) AddAlert(err error) {
+	if pErr, ok := err.(PublicError); ok {
+		d.Alert = &Alert{Level: LevelError, Message: pErr.Public()}
+	} else {
+		d.Alert = AlertGeneric
+	}
+	log.Println(err)
+}
+
+type PublicError interface {
+	error
+	Public() string
 }
