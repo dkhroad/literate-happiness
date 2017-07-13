@@ -10,11 +10,11 @@ import (
 	"lenslocked.com/views"
 )
 
-func NewUsers(us *models.UserService) *Users {
+func NewUsers(us models.UserService) *Users {
 	return &Users{
-		NewView:     views.NewView("bootstrap", "users/new"),
-		LoginView:   views.NewView("bootstrap", "users/login"),
-		UserService: us,
+		NewView:   views.NewView("bootstrap", "users/new"),
+		LoginView: views.NewView("bootstrap", "users/login"),
+		us:        us,
 	}
 }
 
@@ -36,7 +36,7 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 		Password: form.Password,
 	}
 
-	if err := u.UserService.Create(&user); err != nil {
+	if err := u.us.Create(&user); err != nil {
 		vd.AddAlert(err)
 		u.NewView.RenderError(w, vd)
 		return
@@ -63,7 +63,7 @@ func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := u.UserService.Authenticate(loginForm.Email, loginForm.Password)
+	user, err := u.us.Authenticate(loginForm.Email, loginForm.Password)
 	if err != nil {
 		vd.AddAlert(err)
 		u.LoginView.RenderError(w, vd)
@@ -86,7 +86,7 @@ func (u *Users) signInUser(w http.ResponseWriter, user *models.User) error {
 		}
 		user.RememberToken = token
 		// will generate and save the remember token hash
-		if err := u.UserService.UpdateAttributes(&models.User{RememberToken: token}); err != nil {
+		if err := u.us.UpdateAttributes(&models.User{RememberToken: token}); err != nil {
 			return err
 		}
 	}
@@ -108,7 +108,7 @@ type SignupForm struct {
 type Users struct {
 	NewView   *views.View
 	LoginView *views.View
-	*models.UserService
+	us        models.UserService
 }
 
 func (u *Users) CookieTest(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +117,7 @@ func (u *Users) CookieTest(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-	user, err := u.ByRememberTokenHash(cookie.Value)
+	user, err := u.us.ByRememberTokenHash(cookie.Value)
 	if user == nil {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return

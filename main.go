@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"lenslocked.com/controllers"
+	"lenslocked.com/middleware"
 	"lenslocked.com/models"
 )
 
@@ -25,17 +26,19 @@ func init() {
 func main() {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=disable",
 		host, port, user, dbname)
-	us, err := models.NewUserService(psqlInfo)
+	svcs, err := models.NewServices(psqlInfo)
 	if err != nil {
 		panic(err)
 	}
-	defer us.Close()
-	// us.DestructiveReset()
-	us.AutoMigrate()
+	defer svcs.Close()
+	// svcs.DestructiveReset()
+	svcs.AutoMigrate()
 
 	staticC := controllers.NewStatic()
-	usersC := controllers.NewUsers(us)
-	galleriesC := controllers.NewGalleries()
+	usersC := controllers.NewUsers(svcs.User)
+	galleriesC := controllers.NewGalleries(svcs.Gallery)
+
+	requireUserMw := middleware.RequireUser{UserService: svcs.User}
 
 	r := mux.NewRouter()
 	r.Handle("/", staticC.Home).Methods("GET")
@@ -46,6 +49,9 @@ func main() {
 	r.HandleFunc("/signup", usersC.New).Methods("GET")
 	r.HandleFunc("/signup", usersC.Create).Methods("POST")
 	r.HandleFunc("/cookietest", usersC.CookieTest).Methods("GET")
-	r.HandleFunc("/galleries", galleriesC.New).Methods("GET")
+
+	r.Handle("/galleries/new", requireUserMw.Apply(galleriesC.New)).Methods("GET")
+	r.HandleFunc("/galleries", requireUserMw.ApplyFn(galleriesC.Create)).Methods("POST")
+
 	http.ListenAndServe(":3000", r)
 }

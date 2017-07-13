@@ -19,6 +19,15 @@ const (
 	hmacSecretKey = "hmac-secret-key"
 )
 
+type UserService interface {
+	UserDB
+	Authenticate(string, string) (*User, error)
+}
+
+// compile time check to ensure UserService interface satisfies all interfaces
+// defined by userService
+var _ UserService = &userService{}
+
 // UserDB is used to interact with a persistent store
 type UserDB interface {
 	// single user queries
@@ -31,31 +40,21 @@ type UserDB interface {
 	Update(user *User) error
 	UpdateAttributes(user *User) error
 	Delete(id uint) error
-
-	// close the database connection to avoid resource leakage
-	Close() error
-
-	// migrations
-	DestructiveReset()
-	AutoMigrate()
 }
 
-func NewUserService(connectionInfo string) (*UserService, error) {
-	ug, err := newUserGorm(connectionInfo)
-	if err != nil {
-		return nil, err
-	}
+func NewUserService(db *gorm.DB) UserService {
+	ug := &userGorm{DB: db}
 	uv := newUserValidator(ug, hash.NewHMAC(hmacSecretKey))
-	return &UserService{
+	return &userService{
 		UserDB: uv,
-	}, nil
+	}
 }
 
-type UserService struct {
+type userService struct {
 	UserDB
 }
 
-func (us *UserService) Authenticate(userEmail string, userPassword string) (*User, error) {
+func (us *userService) Authenticate(userEmail string, userPassword string) (*User, error) {
 	foundUser, err := us.ByEmail(userEmail)
 	if err != nil {
 		return nil, err
@@ -74,59 +73,47 @@ func (us *UserService) Authenticate(userEmail string, userPassword string) (*Use
 	return foundUser, err
 }
 
-var _ UserDB = &UserGorm{}
+var _ UserDB = &userGorm{}
 
-type UserGorm struct {
+type userGorm struct {
 	*gorm.DB
 }
 
-func newUserGorm(connectionInfo string) (*UserGorm, error) {
-
-	db, err := gorm.Open("postgres", connectionInfo)
-	if err != nil {
-		return nil, err
-	}
-	db.LogMode(true)
-	return &UserGorm{
-		DB: db,
-	}, nil
-}
-
-func (ug *UserGorm) ByID(id uint) (*User, error) {
+func (ug *userGorm) ByID(id uint) (*User, error) {
 	return ug.byQuery(ug.Where("id = ?", id))
 }
 
-func (ug *UserGorm) ByEmail(email string) (*User, error) {
+func (ug *userGorm) ByEmail(email string) (*User, error) {
 	log.Println("Looking for user with email: ", email)
 	return ug.byQuery(ug.Where("email = ?", email))
 }
 
-func (ug *UserGorm) ByRememberTokenHash(tokenHash string) (*User, error) {
+func (ug *userGorm) ByRememberTokenHash(tokenHash string) (*User, error) {
 	return ug.byQuery(ug.Where("remember_token_hash = ?", tokenHash))
 }
 
-func (ug *UserGorm) Create(user *User) error {
+func (ug *userGorm) Create(user *User) error {
 	return ug.DB.Create(user).Error
 }
 
-func (ug *UserGorm) UpdateAttributes(user *User) error {
+func (ug *userGorm) UpdateAttributes(user *User) error {
 	return ug.DB.Model(user).Updates(*user).Error
 }
 
-func (ug *UserGorm) Update(user *User) error {
+func (ug *userGorm) Update(user *User) error {
 	return ug.DB.Save(user).Error
 }
 
-func (ug *UserGorm) Delete(id uint) error {
+func (ug *userGorm) Delete(id uint) error {
 	user := &User{Model: gorm.Model{ID: id}}
 	return ug.DB.Delete(user).Error
 }
 
-func (ug *UserGorm) Close() error {
+func (ug *userGorm) Close() error {
 	return ug.DB.Close()
 }
 
-func (ug *UserGorm) byQuery(query *gorm.DB) (*User, error) {
+func (ug *userGorm) byQuery(query *gorm.DB) (*User, error) {
 	u := User{}
 	err := query.First(&u).Error
 	switch err {
@@ -136,17 +123,6 @@ func (ug *UserGorm) byQuery(query *gorm.DB) (*User, error) {
 		return nil, ErrNotFound
 	default:
 		return nil, err
-	}
-}
-
-func (ug *UserGorm) DestructiveReset() {
-	ug.DropTableIfExists(&User{})
-	ug.AutoMigrate()
-}
-
-func (ug *UserGorm) AutoMigrate() {
-	if err := ug.DB.AutoMigrate(&User{}).Error; err != nil {
-		log.Fatal(err)
 	}
 }
 
