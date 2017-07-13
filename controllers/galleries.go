@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -22,6 +23,7 @@ func NewGalleries(gs models.GalleryService, r *mux.Router) *Galleries {
 		gs:       gs,
 		New:      views.NewView("bootstrap", "galleries/new"),
 		ShowView: views.NewView("bootstrap", "galleries/show"),
+		EditView: views.NewView("bootstrap", "galleries/edit"),
 		router:   r,
 	}
 }
@@ -29,6 +31,7 @@ func NewGalleries(gs models.GalleryService, r *mux.Router) *Galleries {
 type Galleries struct {
 	New      *views.View
 	ShowView *views.View
+	EditView *views.View
 	gs       models.GalleryService
 	router   *mux.Router
 }
@@ -78,26 +81,47 @@ func (g *Galleries) Create(w http.ResponseWriter, r *http.Request) {
 
 // GET /galleries/:id
 func (g *Galleries) Show(w http.ResponseWriter, r *http.Request) {
+	gallery, err := g.galleryByID(w, r)
+	if err != nil {
+		return
+	}
+
+	var vd views.Data
+	vd.Yield = gallery
+
+	g.ShowView.Render(w, vd)
+}
+
+func (g *Galleries) Edit(w http.ResponseWriter, r *http.Request) {
+	gallery, err := g.galleryByID(w, r)
+	if err != nil {
+		return
+	}
+	var vd views.Data
+	vd.Yield = gallery
+	g.EditView.Render(w, vd)
+}
+
+func (g *Galleries) galleryByID(w http.ResponseWriter, r *http.Request) (*models.Gallery, error) {
 	idStr := mux.Vars(r)["id"]
 	if idStr == "" {
-		http.Error(w, "invalid or missing gallery id", http.StatusNotFound)
-		return
+		err := errors.New("invalid or missing gallery id")
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return nil, err
 	}
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "invalid or missing gallery id", http.StatusNotFound)
-		return
+		return nil, err
 	}
 
 	gallery, err := g.gs.ByID(uint(id))
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "Gallery not found", http.StatusNotFound)
+		return nil, err
 	}
-	var vd views.Data
-	vd.Yield = gallery
-
-	g.ShowView.Render(w, vd)
+	return gallery, nil
 }
