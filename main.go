@@ -34,13 +34,14 @@ func main() {
 	// svcs.DestructiveReset()
 	svcs.AutoMigrate()
 
+	r := mux.NewRouter()
+
 	staticC := controllers.NewStatic()
 	usersC := controllers.NewUsers(svcs.User)
-	galleriesC := controllers.NewGalleries(svcs.Gallery)
+	galleriesC := controllers.NewGalleries(svcs.Gallery, r)
 
 	requireUserMw := middleware.RequireUser{UserService: svcs.User}
 
-	r := mux.NewRouter()
 	r.Handle("/", staticC.Home).Methods("GET")
 	r.Handle("/contact", staticC.Contact).Methods("GET")
 	r.Handle("/faq", staticC.Faq).Methods("GET")
@@ -52,7 +53,8 @@ func main() {
 
 	r.Handle("/galleries/new", requireUserMw.Apply(galleriesC.New)).Methods("GET")
 	r.HandleFunc("/galleries", requireUserMw.ApplyFn(galleriesC.Create)).Methods("POST")
-	r.HandleFunc("/galleries/{id:[0-9]+}", requireUserMw.ApplyFn(galleriesC.Show)).Methods("GET")
+	r.HandleFunc("/galleries/{id:[0-9]+}",
+		requireUserMw.ApplyFn(galleriesC.Show)).Methods("GET").Name(controllers.ShowGallery)
 
 	http.ListenAndServe(":3000", r)
 }

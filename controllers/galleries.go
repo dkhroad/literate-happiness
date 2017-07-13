@@ -13,11 +13,16 @@ import (
 	"lenslocked.com/views"
 )
 
-func NewGalleries(gs models.GalleryService) *Galleries {
+const (
+	ShowGallery = "show"
+)
+
+func NewGalleries(gs models.GalleryService, r *mux.Router) *Galleries {
 	return &Galleries{
 		gs:       gs,
 		New:      views.NewView("bootstrap", "galleries/new"),
 		ShowView: views.NewView("bootstrap", "galleries/show"),
+		router:   r,
 	}
 }
 
@@ -25,6 +30,7 @@ type Galleries struct {
 	New      *views.View
 	ShowView *views.View
 	gs       models.GalleryService
+	router   *mux.Router
 }
 
 type galleryForm struct {
@@ -59,7 +65,15 @@ func (g *Galleries) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintln(w, gallery)
+	// fmt.Fprintln(w, gallery)
+	url, err := g.router.Get(ShowGallery).URL("id", fmt.Sprintf("%v", gallery.ID))
+	if err != nil {
+		log.Println(err)
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	log.Println("redirecting to ", url.Path)
+	http.Redirect(w, r, url.Path, http.StatusFound)
 }
 
 // GET /galleries/:id
