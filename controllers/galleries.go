@@ -105,7 +105,15 @@ func (g *Galleries) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gallery.Title = form.Title
-	fmt.Println(gallery)
+	if err := g.gs.Update(gallery); err != nil {
+		vd.AddAlert(err)
+		g.EditView.Render(w, vd)
+		return
+	}
+	vd.Alert = views.AlertSuccess("Gallery updates successfully")
+	vd.Yield = gallery
+	g.EditView.Render(w, vd)
+
 }
 func (g *Galleries) Edit(w http.ResponseWriter, r *http.Request) {
 	gallery, err := g.galleryByID(w, r)

@@ -10,6 +10,7 @@ type Gallery struct {
 
 type GalleryDB interface {
 	Create(gallery *Gallery) error
+	Update(gallery *Gallery) error
 	ByID(id uint) (*Gallery, error)
 }
 
@@ -39,6 +40,10 @@ func (gg *galleryGorm) Create(gallery *Gallery) error {
 	return gg.db.Create(gallery).Error
 }
 
+func (gg *galleryGorm) Update(gallery *Gallery) error {
+	return gg.db.Save(gallery).Error
+}
+
 type galleryValidator struct {
 	GalleryDB
 }
@@ -66,6 +71,17 @@ func (gv *galleryValidator) Create(gallery *Gallery) error {
 		return err
 	}
 	return gv.GalleryDB.Create(gallery)
+}
+
+func (gv *galleryValidator) Update(gallery *Gallery) error {
+	err := runGalleryValidatorFuncs(gallery,
+		gv.titleRequired,
+		gv.userIDRequired,
+	)
+	if err != nil {
+		return err
+	}
+	return gv.GalleryDB.Update(gallery)
 }
 
 type galleryValidatorFuncs func(gallery *Gallery) error
