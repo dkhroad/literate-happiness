@@ -41,16 +41,17 @@ var models = []interface{}{
 }
 
 func (svcs *Services) DestructiveReset() {
+	log.Println("DestructiveReset", models)
 	for _, model := range models {
 		if err := svcs.db.DropTableIfExists(model).Error; err != nil {
 			log.Fatal(err)
 		}
 	}
-	svcs.AutoMigrate(models...)
+	svcs.AutoMigrate()
 }
 
-func (svcs *Services) AutoMigrate(models ...interface{}) {
-	// if err := svcs.db.AutoMigrate(models).Error; err != nil {
+func (svcs *Services) AutoMigrate() {
+	log.Println("auto migrating..", models)
 	if err := svcs.db.AutoMigrate(models...).Error; err != nil {
 		log.Fatal(err)
 	}
