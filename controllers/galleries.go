@@ -92,6 +92,21 @@ func (g *Galleries) Show(w http.ResponseWriter, r *http.Request) {
 	g.ShowView.Render(w, vd)
 }
 
+func (g *Galleries) Update(w http.ResponseWriter, r *http.Request) {
+	gallery, err := g.galleryByID(w, r)
+	if err != nil {
+		return
+	}
+	form := galleryForm{}
+	vd := views.Data{}
+	if err := parseForm(r, &form); err != nil {
+		vd.AddAlert(err)
+		g.EditView.Render(w, vd)
+		return
+	}
+	gallery.Title = form.Title
+	fmt.Println(gallery)
+}
 func (g *Galleries) Edit(w http.ResponseWriter, r *http.Request) {
 	gallery, err := g.galleryByID(w, r)
 	if err != nil {

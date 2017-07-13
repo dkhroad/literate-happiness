@@ -51,10 +51,18 @@ func main() {
 	r.HandleFunc("/signup", usersC.Create).Methods("POST")
 	r.HandleFunc("/cookietest", usersC.CookieTest).Methods("GET")
 
-	r.Handle("/galleries/new", requireUserMw.Apply(galleriesC.New)).Methods("GET")
-	r.HandleFunc("/galleries", requireUserMw.ApplyFn(galleriesC.Create)).Methods("POST")
+	r.Handle("/galleries/new",
+		requireUserMw.Apply(galleriesC.New)).Methods("GET")
+
+	r.HandleFunc("/galleries",
+		requireUserMw.ApplyFn(galleriesC.Create)).Methods("POST")
+
 	r.HandleFunc("/galleries/{id:[0-9]+}/edit",
 		requireUserMw.ApplyFn(galleriesC.Edit)).Methods("GET")
+
+	r.HandleFunc("/galleries/{id:[0-9]+}/update",
+		requireUserMw.ApplyFn(galleriesC.Update)).Methods("POST")
+
 	r.HandleFunc("/galleries/{id:[0-9]+}",
 		requireUserMw.ApplyFn(galleriesC.Show)).Methods("GET").Name(controllers.ShowGallery)
 
