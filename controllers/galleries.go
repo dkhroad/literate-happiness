@@ -115,6 +115,7 @@ func (g *Galleries) Update(w http.ResponseWriter, r *http.Request) {
 	g.EditView.Render(w, vd)
 
 }
+
 func (g *Galleries) Edit(w http.ResponseWriter, r *http.Request) {
 	gallery, err := g.galleryByID(w, r)
 	if err != nil {
@@ -123,6 +124,21 @@ func (g *Galleries) Edit(w http.ResponseWriter, r *http.Request) {
 	var vd views.Data
 	vd.Yield = gallery
 	g.EditView.Render(w, vd)
+}
+
+func (g *Galleries) Delete(w http.ResponseWriter, r *http.Request) {
+	gallery, err := g.galleryByID(w, r)
+	if err != nil {
+		return
+	}
+	if err = g.gs.Delete(gallery.ID); err != nil {
+		var vd views.Data
+		vd.AddAlert(err)
+		vd.Yield = gallery
+		g.EditView.Render(w, vd)
+	}
+
+	fmt.Fprintln(w, "Gallery deleted successfully", gallery)
 }
 
 func (g *Galleries) galleryByID(w http.ResponseWriter, r *http.Request) (*models.Gallery, error) {

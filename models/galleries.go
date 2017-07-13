@@ -11,6 +11,7 @@ type Gallery struct {
 type GalleryDB interface {
 	Create(gallery *Gallery) error
 	Update(gallery *Gallery) error
+	Delete(id uint) error
 	ByID(id uint) (*Gallery, error)
 }
 
@@ -44,6 +45,31 @@ func (gg *galleryGorm) Update(gallery *Gallery) error {
 	return gg.db.Save(gallery).Error
 }
 
+func (gg *galleryGorm) Delete(id uint) error {
+	gallery := &Gallery{Model: gorm.Model{ID: id}}
+	return gg.db.Delete(gallery).Error
+}
+
+func (gg *galleryGorm) ByID(id uint) (*Gallery, error) {
+	return gg.byQuery(gg.db.Where("id = ?", id))
+}
+
+func (gg *galleryGorm) byQuery(query *gorm.DB) (*Gallery, error) {
+	u := Gallery{}
+	err := query.First(&u).Error
+	switch err {
+	case nil:
+		return &u, nil
+	case gorm.ErrRecordNotFound:
+		return nil, ErrNotFound
+	default:
+		return nil, err
+	}
+}
+
+//
+// galleryValidator
+//
 type galleryValidator struct {
 	GalleryDB
 }
@@ -60,6 +86,15 @@ func (gv *galleryValidator) userIDRequired(gallery *Gallery) error {
 		return ErrUserIDRequired
 	}
 	return nil
+}
+
+func (gv *galleryValidator) idGreaterThanN(n uint) func(*Gallery) error {
+	return func(gallery *Gallery) error {
+		if gallery.ID <= n {
+			return ErrInvalidId
+		}
+		return nil
+	}
 }
 
 func (gv *galleryValidator) Create(gallery *Gallery) error {
@@ -84,6 +119,16 @@ func (gv *galleryValidator) Update(gallery *Gallery) error {
 	return gv.GalleryDB.Update(gallery)
 }
 
+func (gv *galleryValidator) Delete(id uint) error {
+	var gallery Gallery
+	gallery.ID = id
+	err := runGalleryValidatorFuncs(&gallery, gv.idGreaterThanN(0))
+	if err != nil {
+		return err
+	}
+	return gv.GalleryDB.Delete(id)
+}
+
 type galleryValidatorFuncs func(gallery *Gallery) error
 
 func runGalleryValidatorFuncs(gallery *Gallery, fns ...galleryValidatorFuncs) error {
@@ -93,21 +138,4 @@ func runGalleryValidatorFuncs(gallery *Gallery, fns ...galleryValidatorFuncs) er
 		}
 	}
 	return nil
-}
-
-func (gg *galleryGorm) ByID(id uint) (*Gallery, error) {
-	return gg.byQuery(gg.db.Where("id = ?", id))
-}
-
-func (gg *galleryGorm) byQuery(query *gorm.DB) (*Gallery, error) {
-	u := Gallery{}
-	err := query.First(&u).Error
-	switch err {
-	case nil:
-		return &u, nil
-	case gorm.ErrRecordNotFound:
-		return nil, ErrNotFound
-	default:
-		return nil, err
-	}
 }
