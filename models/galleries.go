@@ -4,8 +4,8 @@ import "github.com/jinzhu/gorm"
 
 type Gallery struct {
 	gorm.Model
-	Title  string `gorm:"not null"`
-	UserID uint   `gorm:not null:index`
+	Title  string `gorm:"not null;unique_index"`
+	UserID uint   `gorm:"not null:index"`
 }
 
 type GalleryDB interface {
@@ -13,6 +13,7 @@ type GalleryDB interface {
 	Update(gallery *Gallery) error
 	Delete(id uint) error
 	ByID(id uint) (*Gallery, error)
+	ByUserID(id uint) ([]Gallery, error)
 }
 
 type GalleryService interface {
@@ -52,6 +53,12 @@ func (gg *galleryGorm) Delete(id uint) error {
 
 func (gg *galleryGorm) ByID(id uint) (*Gallery, error) {
 	return gg.byQuery(gg.db.Where("id = ?", id))
+}
+
+func (gg *galleryGorm) ByUserID(id uint) ([]Gallery, error) {
+	var galleries []Gallery
+	err := gg.db.Where("user_id = ?", id).Find(&galleries).Error
+	return galleries, err
 }
 
 func (gg *galleryGorm) byQuery(query *gorm.DB) (*Gallery, error) {
@@ -98,6 +105,7 @@ func (gv *galleryValidator) idGreaterThanN(n uint) func(*Gallery) error {
 }
 
 func (gv *galleryValidator) Create(gallery *Gallery) error {
+	// TODO add uniqueness validator
 	err := runGalleryValidatorFuncs(gallery,
 		gv.titleRequired,
 		gv.userIDRequired,
