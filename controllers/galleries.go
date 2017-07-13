@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
+
+	"github.com/gorilla/mux"
 
 	"lenslocked.com/context"
 	"lenslocked.com/models"
@@ -12,14 +15,16 @@ import (
 
 func NewGalleries(gs models.GalleryService) *Galleries {
 	return &Galleries{
-		gs:  gs,
-		New: views.NewView("bootstrap", "galleries/new"),
+		gs:       gs,
+		New:      views.NewView("bootstrap", "galleries/new"),
+		ShowView: views.NewView("bootstrap", "galleries/show"),
 	}
 }
 
 type Galleries struct {
-	New *views.View
-	gs  models.GalleryService
+	New      *views.View
+	ShowView *views.View
+	gs       models.GalleryService
 }
 
 type galleryForm struct {
@@ -55,4 +60,30 @@ func (g *Galleries) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintln(w, gallery)
+}
+
+// GET /galleries/:id
+func (g *Galleries) Show(w http.ResponseWriter, r *http.Request) {
+	idStr := mux.Vars(r)["id"]
+	if idStr == "" {
+		http.Error(w, "invalid or missing gallery id", http.StatusNotFound)
+		return
+	}
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "invalid or missing gallery id", http.StatusNotFound)
+		return
+	}
+
+	gallery, err := g.gs.ByID(uint(id))
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Gallery not found", http.StatusNotFound)
+	}
+	var vd views.Data
+	vd.Yield = gallery
+
+	g.ShowView.Render(w, vd)
 }

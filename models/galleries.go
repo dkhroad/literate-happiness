@@ -10,6 +10,7 @@ type Gallery struct {
 
 type GalleryDB interface {
 	Create(gallery *Gallery) error
+	ByID(id uint) (*Gallery, error)
 }
 
 type GalleryService interface {
@@ -76,4 +77,21 @@ func runGalleryValidatorFuncs(gallery *Gallery, fns ...galleryValidatorFuncs) er
 		}
 	}
 	return nil
+}
+
+func (gg *galleryGorm) ByID(id uint) (*Gallery, error) {
+	return gg.byQuery(gg.db.Where("id = ?", id))
+}
+
+func (gg *galleryGorm) byQuery(query *gorm.DB) (*Gallery, error) {
+	u := Gallery{}
+	err := query.First(&u).Error
+	switch err {
+	case nil:
+		return &u, nil
+	case gorm.ErrRecordNotFound:
+		return nil, ErrNotFound
+	default:
+		return nil, err
+	}
 }
