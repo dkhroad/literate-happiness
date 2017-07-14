@@ -57,7 +57,7 @@ func (g *Galleries) Index(w http.ResponseWriter, r *http.Request) {
 
 	var vd views.Data
 	vd.Yield = galleries
-	g.IndexView.Render(w, vd)
+	g.IndexView.Render(w, r, vd)
 }
 
 func (g *Galleries) Create(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +65,7 @@ func (g *Galleries) Create(w http.ResponseWriter, r *http.Request) {
 	vd := views.Data{}
 	if err := parseForm(r, &form); err != nil {
 		vd.AddAlert(err)
-		g.New.Render(w, vd)
+		g.New.Render(w, r, vd)
 		return
 	}
 
@@ -84,7 +84,7 @@ func (g *Galleries) Create(w http.ResponseWriter, r *http.Request) {
 
 	if err := g.gs.Create(&gallery); err != nil {
 		vd.AddAlert(err)
-		g.New.Render(w, vd)
+		g.New.Render(w, r, vd)
 		return
 	}
 
@@ -108,7 +108,7 @@ func (g *Galleries) Show(w http.ResponseWriter, r *http.Request) {
 	var vd views.Data
 	vd.Yield = gallery
 
-	g.ShowView.Render(w, vd)
+	g.ShowView.Render(w, r, vd)
 }
 
 func (g *Galleries) Update(w http.ResponseWriter, r *http.Request) {
@@ -120,18 +120,18 @@ func (g *Galleries) Update(w http.ResponseWriter, r *http.Request) {
 	vd := views.Data{}
 	if err := parseForm(r, &form); err != nil {
 		vd.AddAlert(err)
-		g.EditView.Render(w, vd)
+		g.EditView.Render(w, r, vd)
 		return
 	}
 	gallery.Title = form.Title
 	if err := g.gs.Update(gallery); err != nil {
 		vd.AddAlert(err)
-		g.EditView.Render(w, vd)
+		g.EditView.Render(w, r, vd)
 		return
 	}
 	vd.Alert = views.AlertSuccess("Gallery updates successfully")
 	vd.Yield = gallery
-	g.EditView.Render(w, vd)
+	g.EditView.Render(w, r, vd)
 
 }
 
@@ -142,7 +142,7 @@ func (g *Galleries) Edit(w http.ResponseWriter, r *http.Request) {
 	}
 	var vd views.Data
 	vd.Yield = gallery
-	g.EditView.Render(w, vd)
+	g.EditView.Render(w, r, vd)
 }
 
 func (g *Galleries) Delete(w http.ResponseWriter, r *http.Request) {
@@ -154,7 +154,7 @@ func (g *Galleries) Delete(w http.ResponseWriter, r *http.Request) {
 		var vd views.Data
 		vd.AddAlert(err)
 		vd.Yield = gallery
-		g.EditView.Render(w, vd)
+		g.EditView.Render(w, r, vd)
 	}
 
 	url, err := g.router.Get(IndexGallery).URL()

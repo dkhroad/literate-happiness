@@ -19,7 +19,7 @@ func NewUsers(us models.UserService) *Users {
 }
 
 func (u *Users) New(w http.ResponseWriter, r *http.Request) {
-	u.NewView.Render(w, nil)
+	u.NewView.Render(w, r, nil)
 }
 
 func (u *Users) Create(w http.ResponseWriter, r *http.Request) {

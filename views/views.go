@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+
+	"lenslocked.com/context"
 )
 
 var (
@@ -35,23 +37,24 @@ type View struct {
 }
 
 func (v *View) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	v.Render(w, nil)
+	v.Render(w, r, nil)
 }
 
 // Render is used to render a view with a predefined layout.
-func (v *View) Render(w http.ResponseWriter, data interface{}) {
-	switch data.(type) {
+func (v *View) Render(w http.ResponseWriter, r *http.Request, data interface{}) {
+	var vd Data
+	switch d := data.(type) {
 	case Data:
 		// do nothing
+		vd = d
 	default:
-		data = Data{
+		vd = Data{
 			Yield: data,
 		}
 	}
-	// v.RenderError(w, data)
-
+	vd.User, _ = context.User(r.Context())
 	w.Header().Set("Content-Type", "text/html")
-	v.executeTemplateAndLogError(w, data)
+	v.executeTemplateAndLogError(w, vd)
 }
 
 func (v *View) RenderError(w http.ResponseWriter, data interface{}) {
