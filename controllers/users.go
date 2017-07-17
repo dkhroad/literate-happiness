@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -47,7 +46,7 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-	http.Redirect(w, r, "/cookietest", http.StatusFound)
+	http.Redirect(w, r, "/galleries", http.StatusFound)
 }
 
 func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +74,7 @@ func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 		u.LoginView.RenderError(w, vd)
 		return
 	}
-	http.Redirect(w, r, "/cookietest", http.StatusFound)
+	http.Redirect(w, r, "/galleries", http.StatusFound)
 }
 
 func (u *Users) signInUser(w http.ResponseWriter, user *models.User) error {
@@ -109,19 +108,4 @@ type Users struct {
 	NewView   *views.View
 	LoginView *views.View
 	us        models.UserService
-}
-
-func (u *Users) CookieTest(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("remember_token")
-	if err != nil {
-		http.Redirect(w, r, "/login", http.StatusFound)
-		return
-	}
-	user, err := u.us.ByRememberTokenHash(cookie.Value)
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusFound)
-		return
-	}
-	fmt.Fprintln(w, "remember token: ", cookie.Value)
-	fmt.Fprintf(w, "%+v", user)
 }

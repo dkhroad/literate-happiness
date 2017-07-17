@@ -50,7 +50,6 @@ func main() {
 	r.HandleFunc("/login", usersC.Login).Methods("POST")
 	r.HandleFunc("/signup", usersC.New).Methods("GET")
 	r.HandleFunc("/signup", usersC.Create).Methods("POST")
-	r.HandleFunc("/cookietest", usersC.CookieTest).Methods("GET")
 
 	r.HandleFunc("/galleries",
 		requireUserMw.ApplyFn(galleriesC.Index)).Methods("GET").Name(controllers.IndexGallery)
