@@ -111,6 +111,13 @@ func (g *Galleries) Show(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var vd views.Data
+	images, err := g.is.ByGalleryID(gallery.ID)
+	if err != nil {
+		vd.AddAlert(err)
+		g.ShowView.Render(w, r, vd)
+		return
+	}
+	gallery.Images = images
 	vd.Yield = gallery
 
 	g.ShowView.Render(w, r, vd)
