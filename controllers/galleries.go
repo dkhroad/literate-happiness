@@ -155,14 +155,18 @@ func (g *Galleries) UploadImages(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	// var vd views.Data
+	var vd views.Data
 	galleryPath := fmt.Sprintf("galleries/%v/images/", gallery.ID)
 	if err := os.MkdirAll(galleryPath, 0755); err != nil {
-		log.Panic(err)
+		vd.AddAlert(err)
+		g.EditView.Render(w, r, vd)
+		return
 	}
 
 	if err := r.ParseMultipartForm(defaultMaxMemory); err != nil {
-		log.Panic(err)
+		vd.AddAlert(err)
+		g.EditView.Render(w, r, vd)
+		return
 	}
 	var files []string
 	for _, fh := range r.MultipartForm.File["images"] {
@@ -170,15 +174,23 @@ func (g *Galleries) UploadImages(w http.ResponseWriter, r *http.Request) {
 		var fd *os.File
 		var err error
 		if fs, err = fh.Open(); err != nil {
-			log.Println(err)
+			vd.AddAlert(err)
+			g.EditView.Render(w, r, vd)
+			return
 		}
+		defer fs.Close()
 		fn := galleryPath + fh.Filename
 		if fd, err = os.OpenFile(fn, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755); err != nil {
-			log.Println(err)
+			vd.AddAlert(err)
+			g.EditView.Render(w, r, vd)
+			return
 		}
+		defer fd.Close()
 		files = append(files, fn)
 		if _, err = io.Copy(fd, fs); err != nil {
-			log.Println(err)
+			vd.AddAlert(err)
+			g.EditView.Render(w, r, vd)
+			return
 		}
 		fs.Close()
 		fd.Close()
