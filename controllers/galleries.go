@@ -2,8 +2,12 @@ package controllers
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -14,8 +18,9 @@ import (
 )
 
 const (
-	ShowGallery  = "show"
-	IndexGallery = "index"
+	ShowGallery      = "show"
+	IndexGallery     = "index"
+	defaultMaxMemory = 1 << 20
 )
 
 func NewGalleries(gs models.GalleryService, r *mux.Router) *Galleries {
@@ -143,6 +148,42 @@ func (g *Galleries) Edit(w http.ResponseWriter, r *http.Request) {
 	var vd views.Data
 	vd.Yield = gallery
 	g.EditView.Render(w, r, vd)
+}
+
+func (g *Galleries) UploadImages(w http.ResponseWriter, r *http.Request) {
+	gallery, err := g.galleryByID(w, r)
+	if err != nil {
+		return
+	}
+	// var vd views.Data
+	galleryPath := fmt.Sprintf("galleries/%v/images/", gallery.ID)
+	if err := os.MkdirAll(galleryPath, 0755); err != nil {
+		log.Panic(err)
+	}
+
+	if err := r.ParseMultipartForm(defaultMaxMemory); err != nil {
+		log.Panic(err)
+	}
+	var files []string
+	for _, fh := range r.MultipartForm.File["images"] {
+		var fs multipart.File
+		var fd *os.File
+		var err error
+		if fs, err = fh.Open(); err != nil {
+			log.Println(err)
+		}
+		fn := galleryPath + fh.Filename
+		if fd, err = os.OpenFile(fn, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755); err != nil {
+			log.Println(err)
+		}
+		files = append(files, fn)
+		if _, err = io.Copy(fd, fs); err != nil {
+			log.Println(err)
+		}
+		fs.Close()
+		fd.Close()
+	}
+	fmt.Fprintln(w, "Files loaded successfully", files)
 }
 
 func (g *Galleries) Delete(w http.ResponseWriter, r *http.Request) {

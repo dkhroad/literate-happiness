@@ -25,11 +25,13 @@ func (mw *User) ApplyFn(next http.HandlerFunc) http.HandlerFunc {
 		// if user is logged in
 		cookie, err := r.Cookie("remember_token")
 		if err != nil {
+			log.Println("Remember token not found")
 			next(w, r)
 			return
 		}
 		user, err := mw.UserService.ByRememberTokenHash(cookie.Value)
 		if user == nil {
+			log.Println("Unable to found a user with the given remember token", cookie.Value)
 			next(w, r)
 			return
 		}
