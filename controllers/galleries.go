@@ -3,11 +3,8 @@ package controllers
 import (
 	"errors"
 	"fmt"
-	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
-	"os"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -23,9 +20,10 @@ const (
 	defaultMaxMemory = 1 << 20
 )
 
-func NewGalleries(gs models.GalleryService, r *mux.Router) *Galleries {
+func NewGalleries(gs models.GalleryService, is models.ImageService, r *mux.Router) *Galleries {
 	return &Galleries{
 		gs:        gs,
+		is:        is,
 		New:       views.NewView("bootstrap", "galleries/new"),
 		ShowView:  views.NewView("bootstrap", "galleries/show"),
 		EditView:  views.NewView("bootstrap", "galleries/edit"),
@@ -40,6 +38,7 @@ type Galleries struct {
 	ShowView  *views.View
 	EditView  *views.View
 	gs        models.GalleryService
+	is        models.ImageService
 	router    *mux.Router
 }
 
@@ -156,12 +155,6 @@ func (g *Galleries) UploadImages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var vd views.Data
-	galleryPath := fmt.Sprintf("galleries/%v/images/", gallery.ID)
-	if err := os.MkdirAll(galleryPath, 0755); err != nil {
-		vd.AddAlert(err)
-		g.EditView.Render(w, r, vd)
-		return
-	}
 
 	if err := r.ParseMultipartForm(defaultMaxMemory); err != nil {
 		vd.AddAlert(err)
@@ -170,30 +163,18 @@ func (g *Galleries) UploadImages(w http.ResponseWriter, r *http.Request) {
 	}
 	var files []string
 	for _, fh := range r.MultipartForm.File["images"] {
-		var fs multipart.File
-		var fd *os.File
-		var err error
-		if fs, err = fh.Open(); err != nil {
+		rc, err := fh.Open()
+		if err != nil {
 			vd.AddAlert(err)
 			g.EditView.Render(w, r, vd)
 			return
 		}
-		defer fs.Close()
-		fn := galleryPath + fh.Filename
-		if fd, err = os.OpenFile(fn, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755); err != nil {
+		if err := g.is.Create(gallery.ID, rc, fh.Filename); err != nil {
 			vd.AddAlert(err)
 			g.EditView.Render(w, r, vd)
 			return
 		}
-		defer fd.Close()
-		files = append(files, fn)
-		if _, err = io.Copy(fd, fs); err != nil {
-			vd.AddAlert(err)
-			g.EditView.Render(w, r, vd)
-			return
-		}
-		fs.Close()
-		fd.Close()
+		files = append(files, fh.Filename)
 	}
 	fmt.Fprintln(w, "Files loaded successfully", files)
 }
