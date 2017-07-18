@@ -4,8 +4,9 @@ import "github.com/jinzhu/gorm"
 
 type Gallery struct {
 	gorm.Model
-	Title  string `gorm:"not null;unique_index"`
-	UserID uint   `gorm:"not null:index"`
+	Title  string   `gorm:"not null;unique_index"`
+	UserID uint     `gorm:"not null:index"`
+	Images []string `gorm:"-"`
 }
 
 type GalleryDB interface {

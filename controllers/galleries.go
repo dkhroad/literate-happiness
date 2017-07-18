@@ -16,6 +16,7 @@ import (
 
 const (
 	ShowGallery      = "show"
+	EditGallery      = "edit"
 	IndexGallery     = "index"
 	defaultMaxMemory = 1 << 20
 )
@@ -145,6 +146,13 @@ func (g *Galleries) Edit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var vd views.Data
+	images, err := g.is.ByGalleryID(gallery.ID)
+	if err != nil {
+		vd.AddAlert(err)
+		g.EditView.Render(w, r, vd)
+		return
+	}
+	gallery.Images = images
 	vd.Yield = gallery
 	g.EditView.Render(w, r, vd)
 }
@@ -161,7 +169,6 @@ func (g *Galleries) UploadImages(w http.ResponseWriter, r *http.Request) {
 		g.EditView.Render(w, r, vd)
 		return
 	}
-	var files []string
 	for _, fh := range r.MultipartForm.File["images"] {
 		rc, err := fh.Open()
 		if err != nil {
@@ -174,9 +181,16 @@ func (g *Galleries) UploadImages(w http.ResponseWriter, r *http.Request) {
 			g.EditView.Render(w, r, vd)
 			return
 		}
-		files = append(files, fh.Filename)
 	}
-	fmt.Fprintln(w, "Files loaded successfully", files)
+
+	url, err1 := g.router.Get(EditGallery).URL("id", fmt.Sprintf("%v", gallery.ID))
+	if err1 != nil {
+		vd.AddAlert(err1)
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, url.Path, http.StatusFound)
+
 }
 
 func (g *Galleries) Delete(w http.ResponseWriter, r *http.Request) {
