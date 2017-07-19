@@ -13,6 +13,7 @@ const imagePath = "images/galleries"
 type ImageService interface {
 	Create(galleryID uint, r io.ReadCloser, filename string) error
 	ByGalleryID(id uint) ([]Image, error)
+	DeleteImage(img Image)
 }
 
 func NewImageService() ImageService {
@@ -54,6 +55,10 @@ func (is *imageService) ByGalleryID(id uint) ([]Image, error) {
 		images[i] = Image{fn, id}
 	}
 	return images, nil
+}
+
+func (is *imageService) DeleteImage(img Image) {
+	os.RemoveAll(img.RelativePath())
 }
 
 type Image struct {
