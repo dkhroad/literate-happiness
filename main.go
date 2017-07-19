@@ -61,7 +61,7 @@ func main() {
 		requireUserMw.ApplyFn(galleriesC.Create)).Methods("POST")
 
 	r.HandleFunc("/galleries/{id:[0-9]+}/edit",
-		requireUserMw.ApplyFn(galleriesC.Edit)).Methods("GET")
+		requireUserMw.ApplyFn(galleriesC.Edit)).Methods("GET").Name(controllers.EditGallery)
 
 	r.HandleFunc("/galleries/{id:[0-9]+}/update",
 		requireUserMw.ApplyFn(galleriesC.Update)).Methods("POST")
