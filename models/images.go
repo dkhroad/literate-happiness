@@ -5,11 +5,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
+
+const imagePath = "images/galleries"
 
 type ImageService interface {
 	Create(galleryID uint, r io.ReadCloser, filename string) error
-	ByGalleryID(id uint) ([]string, error)
+	ByGalleryID(id uint) ([]Image, error)
 }
 
 func NewImageService() ImageService {
@@ -20,7 +23,7 @@ type imageService struct {
 }
 
 func (is *imageService) Create(galleryID uint, r io.ReadCloser, filename string) error {
-	galleryPath := is.getGalleryImagePath(galleryID)
+	galleryPath := imagePathWithGallery(galleryID)
 	var err error
 	if err = os.MkdirAll(galleryPath, 0755); err != nil {
 		return err
@@ -39,11 +42,33 @@ func (is *imageService) Create(galleryID uint, r io.ReadCloser, filename string)
 	return nil
 }
 
-func (is *imageService) ByGalleryID(id uint) ([]string, error) {
-	galleryPath := is.getGalleryImagePath(id)
-	return filepath.Glob(galleryPath + "*")
+func (is *imageService) ByGalleryID(id uint) ([]Image, error) {
+	galleryPath := imagePathWithGallery(id)
+	imgs, err := filepath.Glob(galleryPath + "*")
+	if err != nil {
+		return nil, err
+	}
+	images := make([]Image, len(imgs))
+	for i, img := range imgs {
+		fn := strings.Replace(img, galleryPath, "", 1)
+		images[i] = Image{fn, id}
+	}
+	return images, nil
 }
 
-func (is *imageService) getGalleryImagePath(galleryID uint) string {
-	return fmt.Sprintf("galleries/%v/images/", galleryID)
+type Image struct {
+	Filename  string
+	GalleryID uint
+}
+
+func (im *Image) Path() string {
+	return "/" + im.RelativePath()
+}
+
+func (im *Image) RelativePath() string {
+	return imagePathWithGallery(im.GalleryID) + im.Filename
+}
+
+func imagePathWithGallery(id uint) string {
+	return fmt.Sprintf("%v/%v/", imagePath, id)
 }
