@@ -9,6 +9,19 @@ type Gallery struct {
 	Images []Image `gorm:"-"`
 }
 
+func (g *Gallery) ImageSplitN(n int) [][]Image {
+	ret := make([][]Image, n)
+	for i := 0; i < n; i++ {
+		ret[i] = make([]Image, 0)
+	}
+
+	for i, img := range g.Images {
+		bucket := i % n
+		ret[bucket] = append(ret[bucket], img)
+	}
+	return ret
+}
+
 type GalleryDB interface {
 	Create(gallery *Gallery) error
 	Update(gallery *Gallery) error

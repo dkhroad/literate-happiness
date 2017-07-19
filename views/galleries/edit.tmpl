@@ -49,21 +49,33 @@
 {{end}}
 
 {{define "galleryImages"}}
-    {{range .Images}}
-      <div class="col-md-2">
-        <a href={{.Path}}>
-          <img src={{.Path}} class="thumbnail">
-        </a>
+  <div class="row">
+    {{range .ImageSplitN 3 }}
+      <div class="col-md-4">
+        {{range .}}
+          <a href={{.Path}}>
+            <img src={{.Path}} class="thumbnail">
+          </a>
+          {{template "deleteImageForm" .}}
+        {{end}}
       </div>
     {{end}}
-{{end}}
-
+  </div>
 <!-- temporary style  -->
 <style>
   .thumbnail {
-    width: 100%
+    width: 100%;
+    margin-bottom: 6px;
   }
 </style>
+{{end}}
+
+
+{{define "deleteImageForm"}}
+  <form action="/galleries/{{.GalleryID}}/images/{{.Filename}}" method="POST">
+    <button type="submit" class="btn btn-default">Delete</button>
+  </form>
+{{end}}
 
 {{define "uploadImageForm"}}
   <form action="/galleries/{{.ID}}/images" method="POST" enctype="multipart/form-data" class="form-horizontal">

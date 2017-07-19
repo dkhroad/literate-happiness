@@ -39,6 +39,8 @@ func main() {
 	staticC := controllers.NewStatic()
 	usersC := controllers.NewUsers(svcs.User)
 	galleriesC := controllers.NewGalleries(svcs.Gallery, svcs.Image, r)
+	imageHandler := http.FileServer(http.Dir("./images"))
+	r.PathPrefix("/images").Handler(http.StripPrefix("/images/", imageHandler))
 
 	userMw := middleware.User{UserService: svcs.User}
 	requireUserMw := middleware.RequireUser{User: userMw}
