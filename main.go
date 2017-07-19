@@ -40,6 +40,11 @@ func main() {
 	staticC := controllers.NewStatic()
 	usersC := controllers.NewUsers(svcs.User)
 	galleriesC := controllers.NewGalleries(svcs.Gallery, svcs.Image, r)
+
+	assetHandler := http.FileServer(http.Dir("./assets"))
+	assetHandler = http.StripPrefix("/assets/", assetHandler)
+	r.PathPrefix("/assets").Handler(assetHandler)
+
 	imageHandler := http.FileServer(http.Dir("./images"))
 	r.PathPrefix("/images").Handler(http.StripPrefix("/images/", imageHandler))
 
