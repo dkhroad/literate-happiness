@@ -20,6 +20,7 @@ const (
 )
 
 func init() {
+	log.SetPrefix("LENS: ")
 	log.SetFlags(log.Llongfile | log.LstdFlags)
 }
 
@@ -28,7 +29,7 @@ func main() {
 		host, port, user, dbname)
 	svcs, err := models.NewServices(psqlInfo)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 	defer svcs.Close()
 	// svcs.DestructiveReset()

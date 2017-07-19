@@ -57,6 +57,7 @@ func (g *Galleries) Index(w http.ResponseWriter, r *http.Request) {
 	}
 	galleries, err := g.gs.ByUserID(user.ID)
 	if err != nil {
+		log.Println(err)
 		return
 	}
 
@@ -93,13 +94,12 @@ func (g *Galleries) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, err := g.router.Get(IndexGallery).URL()
+	url, err := g.router.Get(EditGallery).URL("id", fmt.Sprintf("%v", gallery.ID))
 	if err != nil {
 		log.Println(err)
-		http.Redirect(w, r, "/", http.StatusFound)
+		http.Redirect(w, r, "/galleries", http.StatusFound)
 		return
 	}
-	log.Println("redirecting to ", url.Path)
 	http.Redirect(w, r, url.Path, http.StatusFound)
 }
 
@@ -128,6 +128,11 @@ func (g *Galleries) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+
+	if !validUser(w, r, gallery) {
+		return
+	}
+
 	form := galleryForm{}
 	vd := views.Data{}
 	if err := parseForm(r, &form); err != nil {
@@ -152,6 +157,9 @@ func (g *Galleries) Edit(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	if !validUser(w, r, gallery) {
+		return
+	}
 	var vd views.Data
 	images, err := g.is.ByGalleryID(gallery.ID)
 	if err != nil {
@@ -167,6 +175,9 @@ func (g *Galleries) Edit(w http.ResponseWriter, r *http.Request) {
 func (g *Galleries) UploadImages(w http.ResponseWriter, r *http.Request) {
 	gallery, err := g.galleryByID(w, r)
 	if err != nil {
+		return
+	}
+	if !validUser(w, r, gallery) {
 		return
 	}
 	var vd views.Data
@@ -205,9 +216,8 @@ func (g *Galleries) DeleteImage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	user, ok := context.User(r.Context())
-	if !ok || gallery.UserID != user.ID {
-		http.Error(w, "Gallery not found", http.StatusNotFound)
+	if !validUser(w, r, gallery) {
+		return
 	}
 
 	imageFileName := mux.Vars(r)["filename"]
@@ -225,6 +235,9 @@ func (g *Galleries) DeleteImage(w http.ResponseWriter, r *http.Request) {
 func (g *Galleries) Delete(w http.ResponseWriter, r *http.Request) {
 	gallery, err := g.galleryByID(w, r)
 	if err != nil {
+		return
+	}
+	if !validUser(w, r, gallery) {
 		return
 	}
 	if err = g.gs.Delete(gallery.ID); err != nil {
@@ -266,4 +279,12 @@ func (g *Galleries) galleryByID(w http.ResponseWriter, r *http.Request) (*models
 		return nil, err
 	}
 	return gallery, nil
+}
+
+func validUser(w http.ResponseWriter, r *http.Request, gallery *models.Gallery) bool {
+	user, ok := context.User(r.Context())
+	if !ok || gallery.UserID != user.ID {
+		http.Error(w, "Gallery not found", http.StatusNotFound)
+	}
+	return ok
 }
