@@ -26,7 +26,7 @@ func main() {
 
 	svcs, err := models.NewServices(
 		models.WithUserGorm(dbCfg.Dialect(), dbCfg.ConnectionInfo()),
-		models.WithUser(),
+		models.WithUser(cfg.HMACKey, cfg.PepperHash),
 		models.WithLogMode(!cfg.isProd()),
 		models.WithGallery(),
 		models.WithImage(),
@@ -35,8 +35,12 @@ func main() {
 		log.Panic(err)
 	}
 	defer svcs.Close()
-	// svcs.DestructiveReset()
-	svcs.AutoMigrate()
+	// if err := svcs.DestructiveReset(); err != nil {
+	// 	log.Panic(err)
+	// }
+	if err := svcs.AutoMigrate(); err != nil {
+		log.Panic(err)
+	}
 
 	r := mux.NewRouter()
 

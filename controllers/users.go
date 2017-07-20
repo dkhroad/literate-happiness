@@ -78,20 +78,23 @@ func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *Users) signInUser(w http.ResponseWriter, user *models.User) error {
+	var token string
+	var err error
 	if user.RememberToken == "" {
-		token, err := rand.RememberToken()
+		token, err = rand.RememberToken()
 		if err != nil {
 			return err
 		}
 		user.RememberToken = token
 		// will generate and save the remember token hash
-		if err := u.us.UpdateAttributes(&models.User{RememberToken: token}); err != nil {
+		// if err := u.us.UpdateAttributes(&models.User{RememberToken: token}); err != nil {
+		if err := u.us.UpdateAttributes(user); err != nil {
 			return err
 		}
 	}
 	cookie := http.Cookie{
 		Name:     "remember_token",
-		Value:    user.RememberToken,
+		Value:    token,
 		HttpOnly: true,
 	}
 	http.SetCookie(w, &cookie)

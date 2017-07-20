@@ -5,7 +5,7 @@ import "github.com/jinzhu/gorm"
 type Gallery struct {
 	gorm.Model
 	Title  string  `gorm:"not null;unique_index"`
-	UserID uint    `gorm:"not null:index"`
+	UserID uint    `gorm:"not null;index"`
 	Images []Image `gorm:"-"`
 }
 

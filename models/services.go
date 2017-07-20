@@ -18,9 +18,9 @@ func WithUserGorm(dialect string, connectionInfo string) func(*Services) error {
 	}
 }
 
-func WithUser() func(*Services) error {
+func WithUser(hmacSecret, pepperHash string) func(*Services) error {
 	return func(s *Services) error {
-		s.User = NewUserService(s.db)
+		s.User = NewUserService(s.db, hmacSecret, pepperHash)
 		return nil
 	}
 }
@@ -78,21 +78,22 @@ var models = []interface{}{
 	&Gallery{},
 }
 
-func (svcs *Services) DestructiveReset() {
+func (svcs *Services) DestructiveReset() error {
 	log.Println("DestructiveReset", models)
 	for _, model := range models {
 		if err := svcs.db.DropTableIfExists(model).Error; err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
-	svcs.AutoMigrate()
+	return svcs.AutoMigrate()
 }
 
-func (svcs *Services) AutoMigrate() {
+func (svcs *Services) AutoMigrate() error {
 	log.Println("auto migrating..", models)
 	if err := svcs.db.AutoMigrate(models...).Error; err != nil {
-		log.Fatal(err)
+		return err
 	}
+	return nil
 }
 
 func (svcs *Services) Close() error {

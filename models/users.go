@@ -14,12 +14,6 @@ import (
 	"lenslocked.com/rand"
 )
 
-// TODO: update this to be a config variable
-const (
-	pepperHash    = "doormat-wrangle-scam-gating-shelve"
-	hmacSecretKey = "hmac-secret-key"
-)
-
 type UserService interface {
 	UserDB
 	Authenticate(string, string) (*User, error)
@@ -43,16 +37,18 @@ type UserDB interface {
 	Delete(id uint) error
 }
 
-func NewUserService(db *gorm.DB) UserService {
+func NewUserService(db *gorm.DB, hmacSecretKey, pepperHash string) UserService {
 	ug := &userGorm{DB: db}
-	uv := newUserValidator(ug, hash.NewHMAC(hmacSecretKey))
+	uv := newUserValidator(ug, hash.NewHMAC(hmacSecretKey), pepperHash)
 	return &userService{
-		UserDB: uv,
+		UserDB:     uv,
+		pepperHash: pepperHash,
 	}
 }
 
 type userService struct {
 	UserDB
+	pepperHash string
 }
 
 func (us *userService) Authenticate(userEmail string, userPassword string) (*User, error) {
@@ -61,7 +57,7 @@ func (us *userService) Authenticate(userEmail string, userPassword string) (*Use
 		return nil, err
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash), []byte(userPassword+pepperHash))
+	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash), []byte(userPassword+us.pepperHash))
 	if err != nil {
 		switch err {
 		case bcrypt.ErrMismatchedHashAndPassword:
@@ -142,18 +138,20 @@ type User struct {
 type userValidator struct {
 	UserDB
 	hmac        hash.HMAC
+	pepperHash  string
 	emailRegExp *regexp.Regexp
 }
 
-func newUserValidator(db UserDB, hmac hash.HMAC) *userValidator {
+func newUserValidator(db UserDB, hmac hash.HMAC, pepperHash string) *userValidator {
 	return &userValidator{
 		UserDB:      db,
 		hmac:        hmac,
 		emailRegExp: regexp.MustCompile(`^[a-zA-Z%._-]+@[.a-zA-Z%_-]+\.[a-zA-Z]{2,16}$`),
+		pepperHash:  pepperHash,
 	}
 }
 func (uv *userValidator) bcryptPassword(user *User) error {
-	passwd := []byte(user.Password + pepperHash)
+	passwd := []byte(user.Password + uv.pepperHash)
 	phash, err := bcrypt.GenerateFromPassword(passwd, bcrypt.DefaultCost)
 	if err != nil {
 		return err
