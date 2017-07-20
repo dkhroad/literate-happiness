@@ -34,8 +34,10 @@ func DefaultPostgresConfig() PostgresConfig {
 }
 
 type Config struct {
-	Port int
-	Env  string
+	Port       int    `json:"port"`
+	Env        string `json:"env"`
+	PepperHash string `json:"pepper_hash"`
+	HMACKey    string `json:"hmac_key"`
 }
 
 func (c Config) isProd() bool {
@@ -44,17 +46,13 @@ func (c Config) isProd() bool {
 
 func DefaultConfig() Config {
 	return Config{
-		Port: 3000,
-		Env:  "Dev",
+		Port:       3000,
+		Env:        "Dev",
+		PepperHash: "doormat-wrangle-scam-gating-shelve",
+		HMACKey:    "hmac-secret-key",
 	}
 }
 
-// 	psqlInfo := fmt.sprintf("host=%s port=%d user=%s dbname=%s sslmode=disable",
-//
-// 	isProd := false
-//
-// 	http.ListenAndServe(":3000", csrfMW(userMw.Apply(r)))
-//
 // // TODO: update this to be a config variable
 // const (
 // 	pepperHash    = "doormat-wrangle-scam-gating-shelve"

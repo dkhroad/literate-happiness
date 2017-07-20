@@ -24,7 +24,13 @@ func main() {
 	log.Println("config: ", cfg)
 	log.Println("DBConfig: ", dbCfg.ConnectionInfo())
 
-	svcs, err := models.NewServices(dbCfg.Dialect(), dbCfg.ConnectionInfo())
+	svcs, err := models.NewServices(
+		models.WithUserGorm(dbCfg.Dialect(), dbCfg.ConnectionInfo()),
+		models.WithUser(),
+		models.WithLogMode(!cfg.isProd()),
+		models.WithGallery(),
+		models.WithImage(),
+	)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -40,7 +46,7 @@ func main() {
 		log.Panic(err1)
 	}
 
-	csrfMW := csrf.Protect(randomBytes, csrf.Secure(!cfg.isProd()))
+	csrfMW := csrf.Protect(randomBytes, csrf.Secure(cfg.isProd()))
 
 	staticC := controllers.NewStatic()
 	usersC := controllers.NewUsers(svcs.User)
