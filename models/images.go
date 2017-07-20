@@ -3,6 +3,8 @@ package models
 import (
 	"fmt"
 	"io"
+	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,7 +69,11 @@ type Image struct {
 }
 
 func (im *Image) Path() string {
-	return "/" + im.RelativePath()
+	url, err := url.Parse(im.RelativePath())
+	if err != nil {
+		log.Println(err)
+	}
+	return "/" + url.String()
 }
 
 func (im *Image) RelativePath() string {
