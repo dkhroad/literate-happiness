@@ -5,10 +5,10 @@ import (
 	"log"
 	"regexp"
 
+	"github.com/jinzhu/gorm"
+
 	"strings"
 
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"golang.org/x/crypto/bcrypt"
 	"lenslocked.com/hash"
 	"lenslocked.com/rand"

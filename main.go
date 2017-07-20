@@ -13,23 +13,18 @@ import (
 	"lenslocked.com/rand"
 )
 
-const (
-	host     = "localhost"
-	port     = 5432
-	user     = "postgres"
-	dbname   = "lenslocked_dev"
-	password = ""
-)
-
 func init() {
 	log.SetPrefix("LENS: ")
 	log.SetFlags(log.Llongfile | log.LstdFlags)
 }
 
 func main() {
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=disable",
-		host, port, user, dbname)
-	svcs, err := models.NewServices(psqlInfo)
+	dbCfg := DefaultPostgresConfig()
+	cfg := DefaultConfig()
+	log.Println("config: ", cfg)
+	log.Println("DBConfig: ", dbCfg.ConnectionInfo())
+
+	svcs, err := models.NewServices(dbCfg.Dialect(), dbCfg.ConnectionInfo())
 	if err != nil {
 		log.Panic(err)
 	}
@@ -45,9 +40,7 @@ func main() {
 		log.Panic(err1)
 	}
 
-	// TODO: config this
-	isProd := false
-	csrfMW := csrf.Protect(randomBytes, csrf.Secure(isProd))
+	csrfMW := csrf.Protect(randomBytes, csrf.Secure(!cfg.isProd()))
 
 	staticC := controllers.NewStatic()
 	usersC := controllers.NewUsers(svcs.User)
@@ -98,6 +91,5 @@ func main() {
 	r.HandleFunc("/galleries/{id:[0-9]+}/delete",
 		requireUserMw.ApplyFn(galleriesC.Delete)).Methods("POST")
 
-	// TODO: config this
-	http.ListenAndServe(":3000", csrfMW(userMw.Apply(r)))
+	http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), csrfMW(userMw.Apply(r)))
 }

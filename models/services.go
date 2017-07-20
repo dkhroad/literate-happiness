@@ -4,13 +4,15 @@ import (
 	"log"
 
 	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/postgres"
 )
 
-func NewServices(connectionInfo string) (*Services, error) {
-	db, err := newGorm(connectionInfo)
+func NewServices(dialect string, connectionInfo string) (*Services, error) {
+	db, err := newGorm(dialect, connectionInfo)
 	if err != nil {
 		return nil, err
 	}
+	// TODO: config this
 	db.LogMode(true)
 	return &Services{
 		User:    NewUserService(db),
@@ -27,9 +29,9 @@ type Services struct {
 	db      *gorm.DB
 }
 
-func newGorm(connectionInfo string) (*gorm.DB, error) {
-
-	db, err := gorm.Open("postgres", connectionInfo)
+func newGorm(dialect string, connectionInfo string) (*gorm.DB, error) {
+	// TODO: config this
+	db, err := gorm.Open(dialect, connectionInfo)
 	if err != nil {
 		return nil, err
 	}
