@@ -14,6 +14,7 @@ import (
 	"lenslocked.com/rand"
 )
 
+// TODO: update this to be a config variable
 const (
 	pepperHash    = "doormat-wrangle-scam-gating-shelve"
 	hmacSecretKey = "hmac-secret-key"

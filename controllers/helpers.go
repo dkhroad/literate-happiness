@@ -1,8 +1,9 @@
 package controllers
 
 import (
-	"github.com/gorilla/schema"
 	"net/http"
+
+	"github.com/gorilla/schema"
 )
 
 func parseForm(r *http.Request, dst interface{}) error {
@@ -12,6 +13,7 @@ func parseForm(r *http.Request, dst interface{}) error {
 	}
 
 	decoder := schema.NewDecoder()
+	decoder.IgnoreUnknownKeys(true)
 	err = decoder.Decode(dst, r.PostForm)
 	return err
 }

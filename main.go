@@ -5,10 +5,12 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gorilla/csrf"
 	"github.com/gorilla/mux"
 	"lenslocked.com/controllers"
 	"lenslocked.com/middleware"
 	"lenslocked.com/models"
+	"lenslocked.com/rand"
 )
 
 const (
@@ -36,6 +38,16 @@ func main() {
 	svcs.AutoMigrate()
 
 	r := mux.NewRouter()
+
+	// CSRF protection
+	randomBytes, err1 := rand.Bytes(32)
+	if err1 != nil {
+		log.Panic(err1)
+	}
+
+	// TODO: config this
+	isProd := false
+	csrfMW := csrf.Protect(randomBytes, csrf.Secure(isProd))
 
 	staticC := controllers.NewStatic()
 	usersC := controllers.NewUsers(svcs.User)
@@ -86,5 +98,6 @@ func main() {
 	r.HandleFunc("/galleries/{id:[0-9]+}/delete",
 		requireUserMw.ApplyFn(galleriesC.Delete)).Methods("POST")
 
-	http.ListenAndServe(":3000", userMw.Apply(r))
+	// TODO: config this
+	http.ListenAndServe(":3000", csrfMW(userMw.Apply(r)))
 }

@@ -2,11 +2,14 @@ package views
 
 import (
 	"bytes"
+	"errors"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"path/filepath"
+
+	"github.com/gorilla/csrf"
 
 	"lenslocked.com/context"
 )
@@ -21,7 +24,13 @@ func NewView(layout string, files ...string) *View {
 	addTemplateDirAndExt(files)
 	files = append(files, layoutFiles()...)
 
-	t, err := template.ParseFiles(files...)
+	// t, err := template.ParseFiles(files...)
+	t, err := template.New("").Funcs(template.FuncMap{
+		"csrfField": func() (template.HTML, error) {
+			return "", errors.New("csrfField is not Implemented")
+		},
+	}).ParseFiles(files...)
+
 	if err != nil {
 		log.Panic(err)
 	}
@@ -52,20 +61,26 @@ func (v *View) Render(w http.ResponseWriter, r *http.Request, data interface{}) 
 			Yield: data,
 		}
 	}
+	csrfField := csrf.TemplateField(r)
+	tpl := v.Template.Funcs(template.FuncMap{
+		"csrfField": func() template.HTML {
+			return csrfField
+		},
+	})
 	vd.User, _ = context.User(r.Context())
 	w.Header().Set("Content-Type", "text/html")
-	v.executeTemplateAndLogError(w, vd)
+	v.executeTemplateAndLogError(tpl, w, vd)
 }
 
 func (v *View) RenderError(w http.ResponseWriter, data interface{}) {
 	w.WriteHeader(http.StatusInternalServerError)
 	w.Header().Set("Content-Type", "text/html")
-	v.executeTemplateAndLogError(w, data)
+	v.executeTemplateAndLogError(v.Template, w, data)
 }
 
-func (v *View) executeTemplateAndLogError(w http.ResponseWriter, data interface{}) {
+func (v *View) executeTemplateAndLogError(tpl *template.Template, w http.ResponseWriter, data interface{}) {
 	var buf bytes.Buffer
-	if err := v.Template.ExecuteTemplate(&buf, v.Layout, data); err != nil {
+	if err := tpl.ExecuteTemplate(&buf, v.Layout, data); err != nil {
 		http.Error(w, "Something went wrong.", http.StatusInternalServerError)
 		log.Println(err)
 		return

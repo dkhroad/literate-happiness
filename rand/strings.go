@@ -7,7 +7,7 @@ import (
 
 const NumBytes = 32
 
-func randomBytes(n int) ([]byte, error) {
+func Bytes(n int) ([]byte, error) {
 	b := make([]byte, n)
 	n, err := rand.Read(b)
 	if err != nil {
@@ -18,7 +18,7 @@ func randomBytes(n int) ([]byte, error) {
 
 // url encoded random string
 func RememberToken() (string, error) {
-	tokenBytes, err := randomBytes(NumBytes)
+	tokenBytes, err := Bytes(NumBytes)
 	if err != nil {
 		return "", err
 	}
