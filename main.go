@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -19,8 +20,15 @@ func init() {
 }
 
 func main() {
-	dbCfg := DefaultPostgresConfig()
-	cfg := DefaultConfig()
+	prodFlag := flag.Bool("prod", false, "Load config form the configuration file. Use this flag in production")
+	dropTablesFlag := flag.Bool("dbreset", false, "Drop all tables and automigrate")
+
+	flag.Parse()
+	cfg, cerr := LoadConfig(*prodFlag)
+	if cerr != nil {
+		log.Panic(cerr)
+	}
+	dbCfg := cfg.Database
 	log.Println("config: ", cfg)
 	log.Println("DBConfig: ", dbCfg.ConnectionInfo())
 
@@ -35,11 +43,16 @@ func main() {
 		log.Panic(err)
 	}
 	defer svcs.Close()
-	// if err := svcs.DestructiveReset(); err != nil {
-	// 	log.Panic(err)
-	// }
-	if err := svcs.AutoMigrate(); err != nil {
-		log.Panic(err)
+
+	if *dropTablesFlag {
+		log.Println("dbreset flag was set. Doing destructive db reset")
+		if err := svcs.DestructiveReset(); err != nil {
+			log.Panic(err)
+		}
+	} else {
+		if err := svcs.AutoMigrate(); err != nil {
+			log.Panic(err)
+		}
 	}
 
 	r := mux.NewRouter()
